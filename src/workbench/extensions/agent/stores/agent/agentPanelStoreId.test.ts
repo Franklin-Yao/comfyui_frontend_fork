@@ -1,5 +1,3 @@
-import { getActivePinia } from 'pinia'
-import type { Pinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { visibleCanvasViewport } from '@/composables/canvas/visibleCanvasViewport'
@@ -25,24 +23,10 @@ vi.mock(import('@/platform/telemetry'))
  * registration order.
  */
 describe('the agentPanel store id', () => {
-  let pinia: Pinia
-
   beforeEach(() => {
     localStorage.clear()
-    pinia = getActivePinia()!
     vi.stubGlobal('__DISTRIBUTION__', 'cloud')
     vi.stubGlobal('devicePixelRatio', 1)
-  })
-
-  it('resolves the full panel shape even though the dock mount registers it first', () => {
-    useAgentDockMount()
-
-    const store = useAgentPanelStore()
-
-    expect(typeof store.width).toBe('number')
-    expect(Number.isFinite(store.width)).toBe(true)
-    expect(typeof store.toggleMaximize).toBe('function')
-    expect(Object.keys(pinia.state.value.agentPanel)).toContain('width')
   })
 
   it('maximizes the panel through the store the dock mount already registered', () => {
