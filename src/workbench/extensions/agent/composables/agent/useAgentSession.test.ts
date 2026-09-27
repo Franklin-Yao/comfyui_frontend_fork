@@ -1365,7 +1365,7 @@ describe('useAgentSession (v1 composition root)', () => {
         ])
       const rest = fakeRest({ getMessages })
       const { source, status } = fakeEvents()
-      localStorage.setItem('Comfy.Agent.ThreadId', 'th-1')
+      localStorage.setItem(StorageKeys.agentThread('personal'), 'th-1')
       const session = useAgentSession({ rest, events: source })
       session.start()
       status(true)
@@ -1399,7 +1399,7 @@ describe('useAgentSession (v1 composition root)', () => {
       ])
       const rest = fakeRest({ getMessages })
       const { source, emit, status } = fakeEvents()
-      localStorage.setItem('Comfy.Agent.ThreadId', 'th-1')
+      localStorage.setItem(StorageKeys.agentThread('personal'), 'th-1')
       const session = useAgentSession({ rest, events: source })
       session.start()
       status(true)
@@ -1446,7 +1446,7 @@ describe('useAgentSession (v1 composition root)', () => {
         ])
       const rest = fakeRest({ getMessages })
       const { source, status } = fakeEvents()
-      localStorage.setItem('Comfy.Agent.ThreadId', 'th-1')
+      localStorage.setItem(StorageKeys.agentThread('personal'), 'th-1')
       const session = useAgentSession({ rest, events: source })
       session.start()
       status(true)
@@ -1804,7 +1804,9 @@ describe('useAgentSession (v1 composition root)', () => {
 
       expect(getMessages).toHaveBeenCalledTimes(1)
       expect(session.threadId.value).toBe('th-1')
-      expect(localStorage.getItem('Comfy.Agent.ThreadId')).toBe('th-1')
+      expect(localStorage.getItem(StorageKeys.agentThread('personal'))).toBe(
+        'th-1'
+      )
       const assistant = session.entries.value.at(-1)
       assert(assistant?.role === 'assistant')
       expect(assistant.parts).toEqual([
