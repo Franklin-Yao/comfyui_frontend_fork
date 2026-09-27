@@ -187,6 +187,32 @@ write path and the follower invariant coexist by design. Whole-graph replace as 
 mutation primitive (client re-sends the full graph, server diffs and re-mints ops)
 remains rejected: it clobbers concurrent agent edits mid-turn and kills op-log replay.
 
+## Amendment (2026-09-26): re-minting a document the host refuses as stale-schema
+
+One narrow exception to "the follower never sends the whole graph". When the host
+can no longer read a workflow's stored document because it was written under an
+older document schema, and the subscribe advertised `supports_reseed`, the host
+refuses the subscribe with `stale_schema_reseed_required`. The follower may answer
+that refusal with **one** `doc_reseed` frame carrying the serialized canvas the
+bound tab shows, which is the same content a prompt already posts as its `draft`.
+The host then re-mints the document from it.
+
+Why this is not the rejected whole-graph mutation primitive:
+
+- It is recovery, not editing. The stored document is unreadable, so no concurrent
+  agent or human edit can be applied to it, and none can be clobbered. The host
+  re-checks that the document is still unreadable and compare-and-swaps on the row
+  it read, so a racing tab or turn wins cleanly and the loser only resubscribes.
+- The host remains the only writer. The follower sends plain workflow JSON, never a
+  Yjs update; the host mints, stores and announces the new lineage (`doc_reset`),
+  and the follower pulls it through the ordinary subscribe catch-up.
+- The canvas on screen is the only safe source. The host's own projection of the
+  graph can lag human edits, so re-minting from it could roll them back.
+
+Enforcement: `LayoutFollowerBridge.reseed` asserts (`src/base/assert.ts`) that the
+host's refusal for that exact workflow is the one being answered, at most once per
+refusal. Every other whole-graph send stays rejected.
+
 ## Notes
 
 This ADR mirrors two cross-repo workspace decisions (ADR-010 follower direction, ADR-011
