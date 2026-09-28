@@ -442,7 +442,7 @@ describe('load3dService', () => {
             remove: sceneRemove
           } as unknown as THREE.Scene
         }),
-        loadModel: vi.fn<Load3d['loadModel']>().mockResolvedValue(true),
+        loadModel: vi.fn<Load3d['loadModel']>().mockResolvedValue('loaded'),
         setMaterialMode: vi.fn(),
         setUpDirection: vi.fn(),
         applyGizmoTransform: vi.fn(),
@@ -510,7 +510,7 @@ describe('load3dService', () => {
         originalURL: 'http://example.com/scan.splat'
       })
       const { target } = makeTarget()
-      vi.mocked(target.loadModel).mockResolvedValue(false)
+      vi.mocked(target.loadModel).mockResolvedValue('cancelled')
 
       await useLoad3dService().copyLoad3dState(source, target)
 
