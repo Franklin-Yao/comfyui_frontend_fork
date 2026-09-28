@@ -316,7 +316,7 @@ describe('ReplyAssetGroup', () => {
 
       findServerPreviewUrl.mockResolvedValue('https://x/mesh_preview.png')
       await userEvent.click(screen.getByRole('button', { name: 'mesh.glb' }))
-      const dialog = showDialog.mock.calls.at(-1)?.[0]
+      const dialog = vi.mocked(useDialogStore().showDialog).mock.calls.at(-1)?.[0]
       const onClose = dialog?.dialogComponentProps?.onClose
       expect(onClose).toBeTypeOf('function')
       onClose!()
@@ -448,7 +448,7 @@ describe('ReplyAssetGroup', () => {
       // refresh below, so two independent timers are pending at this point.
       await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1))
       await userEvent.click(screen.getByRole('button', { name: 'mesh.glb' }))
-      const dialog = showDialog.mock.calls.at(-1)?.[0]
+      const dialog = vi.mocked(useDialogStore().showDialog).mock.calls.at(-1)?.[0]
       const onClose = dialog?.dialogComponentProps?.onClose
       expect(onClose).toBeTypeOf('function')
       onClose!()

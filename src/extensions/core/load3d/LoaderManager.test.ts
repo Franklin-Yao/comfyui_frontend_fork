@@ -591,7 +591,7 @@ describe('LoaderManager', () => {
       await expect(
         lm.loadModel('api/view?filename=cube.glb', undefined, { silent: true })
       ).rejects.toThrow('parse failure: bad header')
-      expect(addAlert).not.toHaveBeenCalled()
+      expect(useToastStore().addAlert).not.toHaveBeenCalled()
     })
 
     it('rejects on an undeterminable file type instead of alerting when silent is set', async () => {
@@ -601,7 +601,7 @@ describe('LoaderManager', () => {
       await expect(
         lm.loadModel('api/view?type=output', undefined, { silent: true })
       ).rejects.toThrow(/Unknown model file type/)
-      expect(addAlert).not.toHaveBeenCalled()
+      expect(useToastStore().addAlert).not.toHaveBeenCalled()
     })
 
     it('rejects when no adapter claims the extension and silent is set', async () => {
@@ -613,7 +613,7 @@ describe('LoaderManager', () => {
         })
       ).rejects.toThrow(/No model was produced/)
       expect(modelManager.setupModel).not.toHaveBeenCalled()
-      expect(addAlert).not.toHaveBeenCalled()
+      expect(useToastStore().addAlert).not.toHaveBeenCalled()
     })
 
     it('rejects when the URL carries no filename and silent is set', async () => {
@@ -625,7 +625,7 @@ describe('LoaderManager', () => {
       await expect(
         lm.loadModel('api/view?type=output', 'scene.glb', { silent: true })
       ).rejects.toThrow(/No model was produced/)
-      expect(addAlert).not.toHaveBeenCalled()
+      expect(useToastStore().addAlert).not.toHaveBeenCalled()
       // The URL may carry credentials (e.g. a signed query string) — a
       // silent load must never log it to the console on the caller's
       // behalf, matching the "never embeds the requested URL" guarantee
@@ -814,7 +814,7 @@ describe('LoaderManager', () => {
       expect(modelManager.setupModel).not.toHaveBeenCalled()
       expect(disposeGeometry).toHaveBeenCalledOnce()
       expect(disposeMaterial).toHaveBeenCalledOnce()
-      expect(addAlert).not.toHaveBeenCalled()
+      expect(useToastStore().addAlert).not.toHaveBeenCalled()
     })
 
     it('drops a load that fails after disposal without alerting', async () => {
@@ -832,7 +832,7 @@ describe('LoaderManager', () => {
 
       await expect(load).resolves.toBe('cancelled')
       expect(modelManager.setupModel).not.toHaveBeenCalled()
-      expect(addAlert).not.toHaveBeenCalled()
+      expect(useToastStore().addAlert).not.toHaveBeenCalled()
     })
 
     it('drops a load started after disposal without alerting', async () => {
@@ -844,7 +844,7 @@ describe('LoaderManager', () => {
       )
       expect(modelManager.setupModel).not.toHaveBeenCalled()
       expect(meshLoad).not.toHaveBeenCalled()
-      expect(addAlert).not.toHaveBeenCalled()
+      expect(useToastStore().addAlert).not.toHaveBeenCalled()
     })
 
     it('logs and drops the load when the URL is missing a filename param', async () => {
