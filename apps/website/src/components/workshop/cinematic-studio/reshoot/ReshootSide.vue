@@ -128,7 +128,7 @@ function choose(event: Event) {
         />
       </ReshootDisclosure>
       <ReshootFormat v-model:aspect="aspect" v-model:size="size" :locale />
-      <ReshootDisclosure :label="rc('reshoot.advanced', locale)">
+      <ReshootDisclosure :label="rc('reshoot.advanced.label', locale)">
         <div class="flex flex-col gap-3">
           <div class="flex flex-col gap-1.5">
             <label
@@ -188,7 +188,7 @@ function choose(event: Event) {
         data-testid="reshoot-action"
         @click="emit('generate')"
       >
-        {{ rc('reshoot.generate', locale) }}
+        {{ rc('reshoot.generate.label', locale) }}
       </Button>
     </footer>
   </aside>

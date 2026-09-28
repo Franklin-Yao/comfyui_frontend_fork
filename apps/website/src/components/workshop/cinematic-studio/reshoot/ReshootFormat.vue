@@ -40,7 +40,7 @@ const aspectValue = computed({
       <CinematicMenu
         v-model="aspectValue"
         :options="aspectOptions"
-        :heading="rc('reshoot.aspect', locale)"
+        :heading="rc('reshoot.aspect.label', locale)"
         trigger-class="h-10 justify-center border border-transparency-white-t20 text-sm text-primary-warm-white hover:border-primary-warm-white/50"
       >
         {{ aspectLabel(aspect) }}
@@ -48,7 +48,7 @@ const aspectValue = computed({
       <div
         class="grid grid-cols-2 rounded-xl border border-transparency-white-t20 p-0.5"
         role="radiogroup"
-        :aria-label="rc('reshoot.size', locale)"
+        :aria-label="rc('reshoot.size.label', locale)"
       >
         <button
           v-for="option in RESHOOT_SIZES"
