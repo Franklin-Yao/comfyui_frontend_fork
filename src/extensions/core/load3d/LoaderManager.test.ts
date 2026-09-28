@@ -56,8 +56,9 @@ function makeModelManagerStub(): ModelManagerStub {
   }
 }
 
-const { meshLoad, splatLoad, pointCloudLoad } = vi.hoisted(() => ({
+const { meshLoad, meshDisposeModel, splatLoad, pointCloudLoad } = vi.hoisted(() => ({
   meshLoad: vi.fn(),
+  meshDisposeModel: vi.fn(),
   splatLoad: vi.fn(),
   pointCloudLoad: vi.fn()
 }))
@@ -69,6 +70,7 @@ vi.mock(import('./MeshModelAdapter'), () => ({
       readonly extensions = ['stl', 'fbx', 'obj', 'gltf', 'glb'] as const
       readonly capabilities = {}
       load = meshLoad
+      disposeModel = meshDisposeModel
     }
   )
 }))
@@ -133,6 +135,7 @@ function makeLoaderManager() {
 describe('LoaderManager', () => {
   beforeEach(() => {
     meshLoad.mockResolvedValue(null)
+    meshDisposeModel.mockReset()
     splatLoad.mockResolvedValue(null)
     pointCloudLoad.mockResolvedValue(null)
     vi.mocked(fetchModelData).mockResolvedValue(new ArrayBuffer(0))
@@ -683,6 +686,7 @@ describe('LoaderManager', () => {
       // and leaked the stale geometry/material.
       expect(disposeGeometry).toHaveBeenCalledOnce()
       expect(disposeMaterial).toHaveBeenCalledOnce()
+      expect(meshDisposeModel).toHaveBeenCalledWith(firstModel)
       // The stale load's setOriginalModel write must never have landed —
       // createLoadContext gates it on loadId.
       expect(modelManager.setOriginalModel).not.toHaveBeenCalledWith(firstModel)
