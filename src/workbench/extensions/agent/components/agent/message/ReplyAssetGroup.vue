@@ -124,27 +124,26 @@ function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
   const controller = markRaw(new AbortController())
   thumbnailState.value[url] = { phase: 'loading', controller }
 
-  void findServerPreviewUrl(filename)
-    .then(async (preview) => {
-      if (!mounted || !owns(url, controller)) return
-      if (preview) {
-        thumbnailState.value[url] = { phase: 'ready', src: preview }
-        return
-      }
-      const result = await generateModelThumbnail(
-        url,
-        filename,
-        controller.signal
-      )
-      if (!mounted || !owns(url, controller)) return
-      if (result.status === 'rendered') {
-        thumbnailState.value[url] = { phase: 'ready', src: result.dataUrl }
-      } else if (result.status === 'failed') {
-        scheduleThumbnailRetry(url, filename, attempts)
-      }
-      // 'cancelled' leaves no entry here — hideThumbnail already removed it
-      // synchronously when the abort was issued.
-    })
+  void findServerPreviewUrl(filename).then(async (preview) => {
+    if (!mounted || !owns(url, controller)) return
+    if (preview) {
+      thumbnailState.value[url] = { phase: 'ready', src: preview }
+      return
+    }
+    const result = await generateModelThumbnail(
+      url,
+      filename,
+      controller.signal
+    )
+    if (!mounted || !owns(url, controller)) return
+    if (result.status === 'rendered') {
+      thumbnailState.value[url] = { phase: 'ready', src: result.dataUrl }
+    } else if (result.status === 'failed') {
+      scheduleThumbnailRetry(url, filename, attempts)
+    }
+    // 'cancelled' leaves no entry here — hideThumbnail already removed it
+    // synchronously when the abort was issued.
+  })
 }
 
 /**
@@ -226,22 +225,21 @@ const MediaLightbox = defineAsyncComponent(
 function refreshModelThumbnail(asset: ReplyAsset, retry = true): void {
   const state = thumbnailState.value[asset.url]
   if (!mounted || !isAssetPreviewSupported() || state?.phase === 'ready') return
-  void findServerPreviewUrl(asset.filename)
-    .then((preview) => {
-      if (!mounted) return
-      if (preview) {
-        // Overwriting a `loading`/`retryPending` entry would leave its
-        // controller/timer unreachable, so cancel before replacing it.
-        cancelThumbnailState(thumbnailState.value[asset.url])
-        thumbnailState.value[asset.url] = { phase: 'ready', src: preview }
-      } else if (retry) {
-        const timeout = setTimeout(() => {
-          refreshTimeouts.delete(timeout)
-          refreshModelThumbnail(asset, false)
-        }, 2000)
-        refreshTimeouts.add(timeout)
-      }
-    })
+  void findServerPreviewUrl(asset.filename).then((preview) => {
+    if (!mounted) return
+    if (preview) {
+      // Overwriting a `loading`/`retryPending` entry would leave its
+      // controller/timer unreachable, so cancel before replacing it.
+      cancelThumbnailState(thumbnailState.value[asset.url])
+      thumbnailState.value[asset.url] = { phase: 'ready', src: preview }
+    } else if (retry) {
+      const timeout = setTimeout(() => {
+        refreshTimeouts.delete(timeout)
+        refreshModelThumbnail(asset, false)
+      }, 2000)
+      refreshTimeouts.add(timeout)
+    }
+  })
 }
 
 function modelThumbnailSrc(url: string): string {

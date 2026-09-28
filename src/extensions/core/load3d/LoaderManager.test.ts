@@ -56,12 +56,14 @@ function makeModelManagerStub(): ModelManagerStub {
   }
 }
 
-const { meshLoad, meshDisposeModel, splatLoad, pointCloudLoad } = vi.hoisted(() => ({
-  meshLoad: vi.fn(),
-  meshDisposeModel: vi.fn(),
-  splatLoad: vi.fn(),
-  pointCloudLoad: vi.fn()
-}))
+const { meshLoad, meshDisposeModel, splatLoad, pointCloudLoad } = vi.hoisted(
+  () => ({
+    meshLoad: vi.fn(),
+    meshDisposeModel: vi.fn(),
+    splatLoad: vi.fn(),
+    pointCloudLoad: vi.fn()
+  })
+)
 
 vi.mock(import('./MeshModelAdapter'), () => ({
   MeshModelAdapter: fromAny(
