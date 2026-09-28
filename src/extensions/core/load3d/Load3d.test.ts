@@ -980,7 +980,7 @@ describe('Load3d', () => {
       resolveLoad()
       const [accepted] = await Promise.all([load, idle])
 
-      expect(accepted).toBe(false)
+      expect(accepted).toBe('cancelled')
       expect(ctx.load3d.getCurrentModel()).toBeNull()
     })
   })
