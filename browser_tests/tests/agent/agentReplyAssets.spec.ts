@@ -4,7 +4,7 @@ import { expect, mergeTests } from '@playwright/test'
 import { webSocketFixture } from '@e2e/fixtures/ws'
 
 import enMessages from '@/locales/en/main.json' with { type: 'json' }
-import type { FeatureFlagsWsMessage } from '@/schemas/apiSchema'
+import type { FeatureFlagsWsMessage } from '@/platform/remote/comfyui/execution/types'
 import type { AgentWsEvent } from '@/workbench/extensions/agent/schemas/agentApiSchema'
 
 import { jsonRoute } from '@e2e/fixtures/utils/jsonRoute'
