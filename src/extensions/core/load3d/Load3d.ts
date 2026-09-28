@@ -10,7 +10,8 @@ import { DEFAULT_MODEL_CAPABILITIES } from './ModelAdapter'
 import type { AdapterRef, ModelAdapterCapabilities } from './ModelAdapter'
 import type { RecordingManager } from './RecordingManager'
 import type { SceneModelManager } from './SceneModelManager'
-import { Viewport3d, type Viewport3dDeps } from './Viewport3d'
+import { Viewport3d } from './Viewport3d'
+import type { Viewport3dDeps } from './Viewport3d'
 import { computeCameraFromMatrices } from './cameraFromMatrices'
 import { DIRECT_EXPORT_FORMATS } from './constants'
 import type {
@@ -62,6 +63,7 @@ class Load3d extends Viewport3d {
   animationManager: AnimationManager
   gizmoManager: GizmoManager
   adapterRef: AdapterRef
+  private configurationCleanup?: () => void
 
   private loadingPromise: Promise<LoadModelOutcome> | null = null
   private _loadGeneration: number = 0
@@ -182,7 +184,7 @@ class Load3d extends Viewport3d {
         Array.isArray(original.animations)
           ? original.animations
           : []
-      const clips = source.animations?.length
+      const clips = source.animations.length
         ? source.animations
         : clipsFromOriginal
       const model =
@@ -334,19 +336,34 @@ class Load3d extends Viewport3d {
     options?: LoadModelOptions
   ): Promise<LoadModelOutcome> {
     this._loadGeneration += 1
+    const loadGeneration = this._loadGeneration
 
-    if (this.loadingPromise) {
+    const previousLoad = this.loadingPromise
+    const acceptedLoad = (async () => {
       try {
-        await this.loadingPromise
-      } catch (e) {}
-    }
+        await previousLoad
+      } catch {
+        // Serialization only: the rejection already reached the loadModel caller.
+      }
 
-    this.loadingPromise = this._loadModelInternal(
-      url,
-      originalFileName,
-      options
-    )
-    return this.loadingPromise
+      let outcome: LoadModelOutcome
+      try {
+        outcome = await this._loadModelInternal(url, originalFileName, options)
+      } finally {
+        if (loadGeneration !== this._loadGeneration) this.clearModelState()
+      }
+
+      return loadGeneration === this._loadGeneration ? outcome : 'cancelled'
+    })()
+
+    // Publish the tail before waiting so every accepted load is visible to
+    // whenLoadIdle(), including loads queued behind the current one.
+    this.loadingPromise = acceptedLoad
+    try {
+      return await acceptedLoad
+    } finally {
+      if (this.loadingPromise === acceptedLoad) this.loadingPromise = null
+    }
   }
 
   async whenLoadIdle(): Promise<void> {
@@ -355,7 +372,9 @@ class Load3d extends Viewport3d {
       last = this.loadingPromise
       try {
         await last
-      } catch (e) {}
+      } catch {
+        // Serialization only: the rejection already reached the loadModel caller.
+      }
     }
   }
 
@@ -377,50 +396,42 @@ class Load3d extends Viewport3d {
     this.modelManager.clearModel()
     this.animationManager.dispose()
 
-    try {
-      const outcome = await this.loaderManager.loadModel(
-        url,
-        originalFileName,
-        options
+    const outcome = await this.loaderManager.loadModel(
+      url,
+      originalFileName,
+      options
+    )
+
+    // A cancelled/failed/empty load clears adapterRef up-front in
+    // LoaderManager but never calls setupModel, so the viewer's
+    // capability flags (format, gizmo, export) would otherwise keep
+    // advertising the *previous* model over an emptied scene. Only a
+    // successful load runs the post-load camera/animation restore below —
+    // those touch state (`currentModel`, camera) that a cancelled load may
+    // have left mid-teardown.
+    if (outcome !== 'loaded') return outcome
+
+    if (this.modelManager.currentModel) {
+      this.animationManager.setupModelAnimations(
+        this.modelManager.currentModel,
+        this.modelManager.originalModel
       )
-
-      // A cancelled/failed/empty load clears adapterRef up-front in
-      // LoaderManager but never calls setupModel, so the viewer's
-      // capability flags (format, gizmo, export) would otherwise keep
-      // advertising the *previous* model over an emptied scene. Only a
-      // successful load runs the post-load camera/animation restore below —
-      // those touch state (`currentModel`, camera) that a cancelled load may
-      // have left mid-teardown.
-      if (outcome !== 'loaded') return outcome
-
-      if (this.modelManager.currentModel) {
-        this.animationManager.setupModelAnimations(
-          this.modelManager.currentModel,
-          this.modelManager.originalModel
-        )
-        this.hasLoadedModel = true
-      }
-
-      if (savedCameraState) {
-        if (
-          savedCameraState.cameraType !==
-          this.cameraManager.getCurrentCameraType()
-        ) {
-          this.toggleCamera(savedCameraState.cameraType)
-        }
-        this.cameraManager.setCameraState(savedCameraState)
-      }
-
-      this.handleResize()
-
-      return outcome
-    } finally {
-      // Must run even when loaderManager.loadModel throws (the `{ silent:
-      // true }` path) — otherwise loadingPromise stays permanently non-null
-      // and every subsequent loadModel call waits on this settled promise
-      // forever without progressing.
-      this.loadingPromise = null
+      this.hasLoadedModel = true
     }
+
+    if (savedCameraState) {
+      if (
+        savedCameraState.cameraType !==
+        this.cameraManager.getCurrentCameraType()
+      ) {
+        this.toggleCamera(savedCameraState.cameraType)
+      }
+      this.cameraManager.setCameraState(savedCameraState)
+    }
+
+    this.handleResize()
+
+    return outcome
   }
 
   isSplatModel(): boolean {
@@ -436,6 +447,11 @@ class Load3d extends Viewport3d {
   }
 
   clearModel(): void {
+    this._loadGeneration += 1
+    this.clearModelState()
+  }
+
+  private clearModelState(): void {
     this.animationManager.dispose()
     this.gizmoManager.detach()
     this.modelManager.clearModel()
@@ -591,15 +607,11 @@ class Load3d extends Viewport3d {
         this.modelManager.currentModel
       )
 
-      if (this.controlsManager.controls) {
-        const box = new THREE.Box3().setFromObject(
-          this.modelManager.currentModel
-        )
-        this.controlsManager.controls.target.copy(
-          box.getCenter(new THREE.Vector3())
-        )
-        this.controlsManager.controls.update()
-      }
+      const box = new THREE.Box3().setFromObject(this.modelManager.currentModel)
+      this.controlsManager.controls.target.copy(
+        box.getCenter(new THREE.Vector3())
+      )
+      this.controlsManager.controls.update()
 
       const result = await this.captureScene(width, height)
       return result.scene
@@ -610,7 +622,7 @@ class Load3d extends Viewport3d {
         this.cameraManager.toggleCamera(savedCameraType)
       }
       this.cameraManager.setCameraState(savedState)
-      this.controlsManager.controls?.update()
+      this.controlsManager.controls.update()
 
       this.forceRender()
     }
@@ -683,7 +695,18 @@ class Load3d extends Viewport3d {
     this.forceRender()
   }
 
+  setConfigurationCleanup(cleanup: () => void): void {
+    this.clearConfigurationCleanup()
+    this.configurationCleanup = cleanup
+  }
+
+  private clearConfigurationCleanup(): void {
+    this.configurationCleanup?.()
+    this.configurationCleanup = undefined
+  }
+
   protected override disposeManagers(): void {
+    this.clearConfigurationCleanup()
     super.disposeManagers()
     this.hdriManager.dispose()
     this.loaderManager.dispose()
