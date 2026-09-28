@@ -85,10 +85,9 @@ type ThumbnailState =
   | {
       phase: 'retryPending'
       timeout: ReturnType<typeof setTimeout>
-      attempts: number
     }
   | { phase: 'ready'; src: string }
-  | { phase: 'gaveUp'; attempts: number }
+  | { phase: 'gaveUp' }
 
 const MAX_THUMBNAIL_RETRY_ATTEMPTS = 2
 const THUMBNAIL_RETRY_DELAY_MS = 2000
@@ -159,7 +158,7 @@ function scheduleThumbnailRetry(
   attempts: number
 ): void {
   if (attempts >= MAX_THUMBNAIL_RETRY_ATTEMPTS) {
-    thumbnailState.value[url] = { phase: 'gaveUp', attempts }
+    thumbnailState.value[url] = { phase: 'gaveUp' }
     return
   }
   const timeout = setTimeout(() => {
@@ -168,8 +167,7 @@ function scheduleThumbnailRetry(
   }, THUMBNAIL_RETRY_DELAY_MS)
   thumbnailState.value[url] = {
     phase: 'retryPending',
-    timeout: markRaw(timeout),
-    attempts: attempts + 1
+    timeout: markRaw(timeout)
   }
 }
 
