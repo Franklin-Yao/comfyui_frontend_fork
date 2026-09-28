@@ -341,14 +341,10 @@ describe('ReplyAssetGroup', () => {
       expect(generateModelThumbnail).toHaveBeenCalledOnce()
     )
 
-    vi.useFakeTimers()
-    try {
-      await vi.advanceTimersByTimeAsync(30_000)
-    } finally {
-      vi.useRealTimers()
-    }
+    await vi.advanceTimersByTimeAsync(30_000)
 
-    expect(generateModelThumbnail).toHaveBeenCalledOnce()
+    expect(generateModelThumbnail).toHaveBeenCalledTimes(3)
+    expect(vi.getTimerCount()).toBe(0)
     expect(screen.queryByRole('img', { name: 'mesh.glb' })).toBeNull()
   })
 
