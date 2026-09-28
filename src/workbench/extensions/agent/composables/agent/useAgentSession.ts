@@ -18,6 +18,7 @@ import {
 import { createUuidv4 } from '@/utils/uuid'
 import type {
   AgentActiveTabData,
+  AgentMessages,
   AgentTurnAccepted,
   AgentWsEvent,
   TurnId
@@ -127,9 +128,8 @@ const PREPARE_TIMEOUT_MS = 3000
  * After a reconnect or a refresh the server may still be finishing the turn,
  * and its terminal event may never reach this socket (dropped during
  * hydration, or the row was orphaned and only a server sweep will end it).
- * Poll the persisted row instead, on the schedule below. Each request uses
- * the REST client's response-header timeout rather than a whole-body deadline,
- * and stays abortable while the session is stopping.
+ * Poll the persisted row instead, on the schedule below. Each request has a
+ * whole-response timeout and stays abortable while the session is stopping.
  * Switching threads stashes the turn rather than ending it, so its recovery
  * keeps running in the background.
  */
@@ -141,13 +141,17 @@ const TURN_RECOVERY_DELAYS_MS: RecoverySchedule = [
   0,
   ...TURN_RECOVERY_DELAYS_AFTER_FETCH_MS
 ]
+const TURN_RECOVERY_REQUEST_TIMEOUT_MS = 60_000
 const TURN_RECOVERY_MAX_CONSECUTIVE_FAILURES = TURN_RECOVERY_DELAYS_MS.length
 
 type TurnOutcome =
   | { kind: 'terminal'; text: string }
   | { kind: 'thread-missing' }
   | { kind: 'message-missing' }
-  | { kind: 'streaming' }
+  | {
+      kind: 'streaming'
+      pendingAsk?: NonNullable<AgentMessages[number]['pending_ask']>
+    }
   | { kind: 'error'; message: string }
 
 /**
@@ -983,6 +987,7 @@ export function useAgentSession(deps: AgentSessionDeps) {
       const outcome = await fetchTurnOutcome(turn, signal)
       if (!isTurnLive(turn, generation)) return
       if (settleFinishedTurn(turn, outcome)) return
+      restorePendingAsk(turn, outcome)
       noticed = noticeFirstError(outcome, noticed)
       consecutiveFailures =
         outcome.kind === 'streaming' ? 0 : consecutiveFailures + 1
@@ -990,10 +995,20 @@ export function useAgentSession(deps: AgentSessionDeps) {
       // Out of budget. No row for the turn means the server has nothing left to
       // deliver, so settle with the text we already have; a run of failed checks
       // says nothing about the turn, so leave it live for the socket.
-      if (outcome.kind === 'message-missing')
+      if (outcome.kind === 'message-missing') {
         conversationStore.settleTurn(turn, undefined)
+        markStoppedTurnReady(turn)
+      }
       return
     }
+  }
+
+  function restorePendingAsk(turn: LiveTurn, outcome: TurnOutcome): void {
+    if (outcome.kind !== 'streaming' || !outcome.pendingAsk) return
+    conversationStore.ingest({
+      type: 'agent_ask',
+      data: { ...outcome.pendingAsk, thread_id: turn.threadId }
+    })
   }
 
   /**
@@ -1055,16 +1070,29 @@ export function useAgentSession(deps: AgentSessionDeps) {
     turn: LiveTurn,
     signal: AbortSignal
   ): Promise<TurnOutcome> {
+    const request = new AbortController()
+    const timeout = setTimeout(
+      () =>
+        request.abort(
+          new DOMException('Turn recovery request timed out', 'TimeoutError')
+        ),
+      TURN_RECOVERY_REQUEST_TIMEOUT_MS
+    )
     try {
-      const history = await rest.getMessages(turn.threadId, { signal })
+      const history = await rest.getMessages(turn.threadId, {
+        signal: AbortSignal.any([signal, request.signal])
+      })
       const row = history.find((entry) => entry.id === turn.messageId)
       if (!row) return { kind: 'message-missing' }
-      if (row.status === 'streaming') return { kind: 'streaming' }
+      if (row.status === 'streaming')
+        return { kind: 'streaming', pendingAsk: row.pending_ask }
       const text = typeof row.content?.text === 'string' ? row.content.text : ''
       return { kind: 'terminal', text }
     } catch (error) {
       if (signal.aborted) throw error
       return turnOutcomeFromError(error)
+    } finally {
+      clearTimeout(timeout)
     }
   }
 

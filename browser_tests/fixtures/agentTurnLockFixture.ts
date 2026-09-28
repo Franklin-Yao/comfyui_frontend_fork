@@ -72,10 +72,6 @@ export const TURN_DONE_EVENT: AgentWsEvent = {
  * an assistant row goes `streaming` when a turn starts and only leaves that
  * state when the turn completes, fails, or is cancelled. Dropping the client's
  * socket does not touch it — that asymmetry is what these specs exercise.
- *
- * `transcript()` answers the GET the client issues after a reconnect to check
- * whether the turn is still running; the cancel route releases the lock when a
- * spec clicks Stop.
  */
 class TurnLockServer {
   private streaming = false
@@ -266,7 +262,6 @@ export class AgentTurnLockHarness {
     ws.send(JSON.stringify(event))
   }
 
-  /** Omitting the socket models completion whose done notification is lost. */
   finishTurn(ws?: WebSocketRoute): void {
     this.server.completeTurn()
     if (ws) this.push(ws, TURN_DONE_EVENT)

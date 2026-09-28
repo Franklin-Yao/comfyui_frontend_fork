@@ -514,6 +514,19 @@ describe('agentEventTransport run approval', () => {
     ])
   })
 
+  it('ignores a repeated approval event for the same ask', () => {
+    const message = drive([runApproval(), runApproval()])
+
+    expect(message.parts).toEqual([
+      {
+        type: 'runApproval',
+        askId: 'turn-1:call-1',
+        workflowId: 'workflow-1',
+        workflowName: 'Portrait workflow'
+      }
+    ])
+  })
+
   it('removes only the matching approval when the ask resolves', () => {
     const message = drive([
       runApproval('ask-1'),
