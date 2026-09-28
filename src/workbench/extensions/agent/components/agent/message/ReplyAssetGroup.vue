@@ -183,7 +183,9 @@ function scheduleThumbnailRetry(
 
 /** Frees the shared render queue when a 3D asset leaves `visibleVisual`. */
 function hideThumbnail(url: string): void {
-  cancelThumbnailState(thumbnailState.value[url])
+  const state = thumbnailState.value[url]
+  if (state?.phase === 'ready' || state?.phase === 'gaveUp') return
+  cancelThumbnailState(state)
   delete thumbnailState.value[url]
 }
 
