@@ -107,25 +107,13 @@ export class LoaderManager implements LoaderManagerInterface {
 
       this.modelManager.originalURL = url
 
-      let fileExtension: string | undefined
-      if (originalFileName) {
-        fileExtension = originalFileName.split('.').pop()?.toLowerCase()
-
-        this.modelManager.originalFileName =
-          originalFileName.split('/').pop()?.split('.')[0] || 'model'
-      } else {
-        const filename = new URLSearchParams(url.split('?')[1]).get('filename')
-        fileExtension = filename?.split('.').pop()?.toLowerCase()
-        this.modelManager.originalFileName = filename
-          ? filename.split('.')[0] || 'model'
-          : 'model'
-      }
+      const fileExtension = this.setOriginalFileName(url, originalFileName)
 
       if (!fileExtension) {
         // The agent path may pass an untrusted, credential-bearing URL —
         // never embed it in a thrown/reported error (see the redaction in
         // the catch block and in modelThumbnail.ts's reportError call).
-        if (options?.silent) throw new Error('Unknown model file type')
+        if (options?.silent) throw new TypeError('Unknown model file type')
         useToastStore().addAlert(t('toastMessages.couldNotDetermineFileType'))
         return 'empty'
       }
@@ -136,48 +124,76 @@ export class LoaderManager implements LoaderManagerInterface {
         loadId,
         options?.silent
       )
-
-      if (loadId !== this.currentLoadId) {
-        // A newer loadModel has superseded us. createLoadContext gates on
-        // loadId, so a superseded adapter's setOriginalModel /
-        // registerOriginalMaterial writes never landed — the result never
-        // entered the scene (setupModel is skipped below) and nothing else
-        // can reach it, so it is always safe to dispose here regardless of
-        // whether the manager itself has been torn down.
-        if (result) this.disposeLoadResult(result)
-        return 'cancelled'
-      }
-
-      if (!result && options?.silent) {
-        throw new Error(`No model was produced for type: ${fileExtension}`)
-      }
-
-      if (result) {
-        // Publish only after the staleness check so a slow older load
-        // can't clobber adapterRef.current that a newer load already
-        // wrote (or cleared).
-        this.adapterRef.current = result.adapter
-        this.adapterRef.capabilities = result.capabilities
-        await this.modelManager.setupModel(result.object)
-      }
-
-      this.eventManager.emitEvent('modelLoadingEnd', null)
-      return result ? 'loaded' : 'empty'
+      return await this.publishLoadResult(
+        result,
+        loadId,
+        fileExtension,
+        options?.silent
+      )
     } catch (error) {
-      if (loadId !== this.currentLoadId) return 'cancelled'
-      this.eventManager.emitEvent('modelLoadingEnd', null)
-      // A silent load's error (and the untrusted URL it may embed, e.g.
-      // from three.js's FileLoader "fetch for <url> responded with ...")
-      // is the caller's to report — logging it here on their behalf would
-      // write it to the console unredacted regardless of what the caller
-      // does with the rethrown error.
-      if (options?.silent) throw error
-      console.error('Error loading model:', error)
-      if (!(options?.silentOnNotFound && isNotFoundError(error))) {
-        useToastStore().addAlert(t('toastMessages.errorLoadingModel'))
-      }
-      return 'failed'
+      return this.handleLoadError(error, loadId, options)
     }
+  }
+
+  private async publishLoadResult(
+    result: (ModelLoadResult & { adapter: ModelAdapter }) | null,
+    loadId: number,
+    fileExtension: string,
+    silent?: boolean
+  ): Promise<LoadModelOutcome> {
+    if (loadId !== this.currentLoadId) {
+      // A newer loadModel has superseded us. createLoadContext gates on
+      // loadId, so the result never entered the scene and is safe to dispose.
+      if (result) this.disposeLoadResult(result)
+      return 'cancelled'
+    }
+    if (!result && silent) {
+      throw new TypeError(`No model was produced for type: ${fileExtension}`)
+    }
+    if (result) {
+      this.adapterRef.current = result.adapter
+      this.adapterRef.capabilities = result.capabilities
+      await this.modelManager.setupModel(result.object)
+    }
+    this.eventManager.emitEvent('modelLoadingEnd', null)
+    return result ? 'loaded' : 'empty'
+  }
+
+  private setOriginalFileName(
+    url: string,
+    originalFileName?: string
+  ): string | undefined {
+    if (originalFileName) {
+      this.modelManager.originalFileName =
+        originalFileName.split('/').pop()?.split('.')[0] || 'model'
+      return originalFileName.split('.').pop()?.toLowerCase()
+    }
+
+    const filename = new URLSearchParams(url.split('?')[1]).get('filename')
+    this.modelManager.originalFileName = filename
+      ? filename.split('.')[0] || 'model'
+      : 'model'
+    return filename?.split('.').pop()?.toLowerCase()
+  }
+
+  private handleLoadError(
+    error: unknown,
+    loadId: number,
+    options?: LoadModelOptions
+  ): LoadModelOutcome {
+    if (loadId !== this.currentLoadId) return 'cancelled'
+    this.eventManager.emitEvent('modelLoadingEnd', null)
+    // A silent load's error (and the untrusted URL it may embed, e.g.
+    // from three.js's FileLoader "fetch for <url> responded with ...")
+    // is the caller's to report — logging it here on their behalf would
+    // write it to the console unredacted regardless of what the caller
+    // does with the rethrown error.
+    if (options?.silent) throw error
+    console.error('Error loading model:', error)
+    if (!(options?.silentOnNotFound && isNotFoundError(error))) {
+      useToastStore().addAlert(t('toastMessages.errorLoadingModel'))
+    }
+    return 'failed'
   }
 
   private disposeLoadResult(
