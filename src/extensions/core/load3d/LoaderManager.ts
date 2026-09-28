@@ -14,6 +14,7 @@ import type {
 } from './ModelAdapter'
 import { PointCloudModelAdapter } from './PointCloudModelAdapter'
 import { SplatModelAdapter } from './SplatModelAdapter'
+import { disposeObject3D } from './SceneModelManager'
 import type {
   EventManagerInterface,
   LoadModelOptions,
@@ -40,23 +41,6 @@ function isNotFoundError(error: unknown): boolean {
     return true
   }
   return /\b404\b/.test(error.message)
-}
-
-/**
- * Materials own their maps (`map`, `normalMap`, `roughnessMap`,
- * `metalnessMap`, `aoMap`, `emissiveMap`, `alphaMap`, `bumpMap`,
- * `displacementMap`, `envMap`, `clearcoatMap`, ...) but `Material.dispose()`
- * only releases GPU program/shader state, not the textures it references.
- * `disposeLoadResult` disposes non-shared materials on every load-generation
- * change, so leaving their textures alive would retain full-resolution
- * texture memory for every superseded model. Walk own enumerable properties
- * rather than a hardcoded map-name list so newly added map types (e.g. a
- * future `sheenColorMap`) are covered without touching this function.
- */
-function disposeMaterialTextures(material: THREE.Material): void {
-  for (const value of Object.values(material)) {
-    if (value instanceof THREE.Texture) value.dispose()
-  }
 }
 
 /**
@@ -200,20 +184,7 @@ export class LoaderManager implements LoaderManagerInterface {
     result: ModelLoadResult & { adapter: ModelAdapter }
   ): void {
     result.adapter.disposeModel?.(result.object)
-    result.object.traverse((child) => {
-      if (!(child instanceof THREE.Mesh || child instanceof THREE.Points))
-        return
-      child.geometry?.dispose()
-      const materials = Array.isArray(child.material)
-        ? child.material
-        : [child.material]
-      for (const material of materials) {
-        if (!material || material === this.modelManager.standardMaterial)
-          continue
-        disposeMaterialTextures(material)
-        material.dispose()
-      }
-    })
+    disposeObject3D(result.object, this.modelManager.standardMaterial)
   }
 
   private async pickAdapter(

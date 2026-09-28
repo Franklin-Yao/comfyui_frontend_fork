@@ -14,6 +14,26 @@ import type {
   UpDirection
 } from './interfaces'
 
+export function disposeObject3D(
+  object: THREE.Object3D,
+  standardMaterial: THREE.Material
+): void {
+  object.traverse((child) => {
+    if (!(child instanceof THREE.Mesh || child instanceof THREE.Points)) return
+    child.geometry?.dispose()
+    const materials = Array.isArray(child.material)
+      ? child.material
+      : [child.material]
+    for (const material of materials) {
+      if (!material || material === standardMaterial) continue
+      for (const value of Object.values(material)) {
+        if (value instanceof THREE.Texture) value.dispose()
+      }
+      material.dispose()
+    }
+  })
+}
+
 export class SceneModelManager implements ModelManagerInterface {
   currentModel: THREE.Object3D | null = null
   originalModel:
@@ -173,16 +193,7 @@ export class SceneModelManager implements ModelManagerInterface {
       if (obj.name === 'MainModel') oldMainModels.push(obj)
     })
     oldMainModels.forEach((oldModel) => {
-      oldModel.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.Points) {
-          child.geometry?.dispose()
-          if (Array.isArray(child.material)) {
-            child.material.forEach((m) => m.dispose())
-          } else {
-            child.material?.dispose()
-          }
-        }
-      })
+      disposeObject3D(oldModel, this.standardMaterial)
       this.disposeModelViaAdapter(oldModel)
       this.scene.remove(oldModel)
     })
@@ -325,16 +336,7 @@ export class SceneModelManager implements ModelManagerInterface {
     objectsToRemove.forEach((obj) => {
       this.scene.remove(obj)
 
-      obj.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.Points) {
-          child.geometry?.dispose()
-          if (Array.isArray(child.material)) {
-            child.material.forEach((material) => material.dispose())
-          } else {
-            child.material?.dispose()
-          }
-        }
-      })
+      disposeObject3D(obj, this.standardMaterial)
       this.disposeModelViaAdapter(obj)
     })
 
