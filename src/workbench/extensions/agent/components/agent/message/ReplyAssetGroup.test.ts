@@ -35,9 +35,6 @@ vi.mock(import('@/components/load3d/modelThumbnail'), () => ({
   generateModelThumbnail
 }))
 
-const reportError = vi.hoisted(() => vi.fn())
-vi.mock(import('@/platform/telemetry/reportError'), () => ({ reportError }))
-
 const image = (n: number): ReplyAsset => ({
   url: `https://x/i${n}.png`,
   filename: `i${n}.png`,
@@ -91,7 +88,6 @@ describe('ReplyAssetGroup', () => {
     findServerPreviewUrl.mockReset().mockResolvedValue(null)
     findOutputAsset.mockReset().mockResolvedValue(undefined)
     generateModelThumbnail.mockReset().mockResolvedValue({ status: 'failed' })
-    reportError.mockReset()
   })
 
   it('T-09 / PM-652 / FE-1326 renders image and video previews inline', () => {
@@ -264,44 +260,6 @@ describe('ReplyAssetGroup', () => {
     await Promise.resolve()
 
     expect(generateModelThumbnail).not.toHaveBeenCalled()
-  })
-
-  it('reports preview lookup failures and retries generation on a timed pass', async () => {
-    isAssetPreviewSupported.mockReturnValue(true)
-    findServerPreviewUrl.mockRejectedValueOnce(new Error('preview failed'))
-    renderGroup([model])
-
-    await waitFor(() =>
-      expect(reportError).toHaveBeenCalledWith(expect.any(Error), {
-        errorType: 'agent_reply_asset_preview_failure'
-      })
-    )
-    expect(generateModelThumbnail).not.toHaveBeenCalled()
-
-    // A rejected lookup schedules a bounded retry rather than requiring a
-    // re-render to pick it back up (see modelThumbnailSrc / scheduleThumbnailRetry:
-    // deleting the key on failure was tried and found inert, since nothing
-    // re-triggers the watcher once the message stops changing).
-    await vi.advanceTimersByTimeAsync(2000)
-    await waitFor(() => expect(generateModelThumbnail).toHaveBeenCalledOnce())
-  })
-
-  it('does not report a lookup failure for a strand abandoned by unmount', async () => {
-    isAssetPreviewSupported.mockReturnValue(true)
-    let rejectPreview!: (error: Error) => void
-    findServerPreviewUrl.mockReturnValueOnce(
-      new Promise((_, reject) => {
-        rejectPreview = reject
-      })
-    )
-    const { unmount } = renderGroup([model])
-
-    unmount()
-    rejectPreview(new Error('preview failed'))
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(reportError).not.toHaveBeenCalled()
   })
 
   it('cancels a pending retry when the viewer close finds a server preview', async () => {

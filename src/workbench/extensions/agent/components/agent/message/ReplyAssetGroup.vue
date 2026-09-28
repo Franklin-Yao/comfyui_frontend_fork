@@ -16,7 +16,6 @@ import {
   findServerPreviewUrl,
   isAssetPreviewSupported
 } from '@/platform/assets/utils/assetPreviewUtil'
-import { reportError } from '@/platform/telemetry/reportError'
 import { useDialogStore } from '@/stores/dialogStore'
 import { cn } from '@comfyorg/tailwind-utils'
 
@@ -147,13 +146,6 @@ function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
       // 'cancelled' leaves no entry here — hideThumbnail already removed it
       // synchronously when the abort was issued.
     })
-    .catch((error) => {
-      if (!mounted || !owns(url, controller)) return
-      scheduleThumbnailRetry(url, filename, attempts)
-      reportError(error, {
-        errorType: 'agent_reply_asset_preview_failure'
-      })
-    })
 }
 
 /**
@@ -251,10 +243,6 @@ function refreshModelThumbnail(asset: ReplyAsset, retry = true): void {
         }, 2000)
         refreshTimeouts.add(timeout)
       }
-    })
-    .catch((error) => {
-      if (!mounted) return
-      reportError(error, { errorType: 'agent_reply_asset_preview_failure' })
     })
 }
 
