@@ -6,23 +6,29 @@ import {
 } from './redactTelemetryUrls'
 
 describe('redactTelemetryUrls', () => {
-  it('redacts query, fragment, and authority credentials', () => {
-    expect(
-      redactTelemetryUrls(
-        'https://example.com/model.glb?email=a@b.com&token=private'
-      )
-    ).toBe('https://example.com/model.glb')
-    expect(
-      redactTelemetryUrls(
-        'https://user:p@ss@example.com/model.glb#token=private'
-      )
-    ).toBe('https://example.com/model.glb')
-    expect(
-      redactTelemetryUrls('//user:secret@example.com/model.glb?token=private')
-    ).toBe('//example.com/model.glb')
-    expect(redactTelemetryUrls('/api/view?sig=SECRET&x=1?y=2')).toBe(
-      '/api/view'
-    )
+  it.each([
+    {
+      kind: 'absolute query',
+      input: 'https://example.com/model.glb?email=a@b.com&token=private',
+      expected: 'https://example.com/model.glb'
+    },
+    {
+      kind: 'absolute credentials and fragment',
+      input: 'https://user:p@ss@example.com/model.glb#token=private',
+      expected: 'https://example.com/model.glb'
+    },
+    {
+      kind: 'protocol-relative credentials',
+      input: '//user:secret@example.com/model.glb?token=private',
+      expected: '//example.com/model.glb'
+    },
+    {
+      kind: 'root-relative query',
+      input: '/api/view?sig=SECRET&x=1?y=2',
+      expected: '/api/view'
+    }
+  ])('redacts $kind', ({ input, expected }) => {
+    expect(redactTelemetryUrls(input)).toBe(expected)
   })
 
   it('redacts adjacent URLs without consuming punctuation or stack locations', () => {
