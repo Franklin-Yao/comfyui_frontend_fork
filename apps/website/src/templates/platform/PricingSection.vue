@@ -165,10 +165,9 @@ const mobileStorageRows = storageRates.map((rate) => ({
         </p>
         <p class="mt-2 text-xs/relaxed text-primary-warm-gray">
           {{
-            t('platform.pricing.storageExample', locale).replace(
-              '{amount}',
-              storageExampleAmount
-            )
+            t('platform.pricing.storageExample', locale, {
+              amount: storageExampleAmount
+            })
           }}
         </p>
       </article>
@@ -291,10 +290,9 @@ const mobileStorageRows = storageRates.map((rate) => ({
           </p>
           <p class="mt-2 px-2 text-xs/relaxed text-primary-warm-gray">
             {{
-              t('platform.pricing.storageExample', locale).replace(
-                '{amount}',
-                storageExampleAmount
-              )
+              t('platform.pricing.storageExample', locale, {
+                amount: storageExampleAmount
+              })
             }}
           </p>
         </article>

@@ -72,10 +72,7 @@ describe('PricingSection', () => {
     const amount = formatStorageExampleAmount(
       getStorageRate('network_standard')
     )
-    const expected = t('platform.pricing.storageExample', 'en').replace(
-      '{amount}',
-      amount
-    )
+    const expected = t('platform.pricing.storageExample', 'en', { amount })
     expect(screen.getAllByText(expected)).toHaveLength(2)
   })
 
