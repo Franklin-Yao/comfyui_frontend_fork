@@ -165,6 +165,18 @@ describe('SceneModelManager', () => {
       expect(textureDispose).toHaveBeenCalled()
       expect(manager.appliedTexture).toBeNull()
     })
+
+    it('does not dispose a borrowed applied texture', () => {
+      const { manager } = createManager()
+      const texture = new THREE.Texture()
+      const textureDispose = vi.spyOn(texture, 'dispose')
+      manager.borrowAppliedTexture(texture)
+
+      manager.reset()
+
+      expect(textureDispose).not.toHaveBeenCalled()
+      expect(manager.appliedTexture).toBeNull()
+    })
   })
 
   describe('createSTLMaterial', () => {

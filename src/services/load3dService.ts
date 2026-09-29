@@ -259,8 +259,9 @@ class Load3dService {
         target.setUpDirection(source.getModelManager().currentUpDirection)
 
         if (source.getModelManager().appliedTexture) {
-          target.getModelManager().appliedTexture =
-            source.getModelManager().appliedTexture
+          target
+            .getModelManager()
+            .borrowAppliedTexture(source.getModelManager().appliedTexture)
         }
 
         const sourceInitial = source.getGizmoManager().getInitialTransform()

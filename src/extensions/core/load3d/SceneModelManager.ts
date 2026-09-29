@@ -16,7 +16,8 @@ import type {
 
 export function disposeObject3D(
   object: THREE.Object3D,
-  preservedMaterials: THREE.Material | ReadonlySet<THREE.Material>
+  preservedMaterials: THREE.Material | ReadonlySet<THREE.Material>,
+  preservedTextures: ReadonlySet<THREE.Texture> = new Set()
 ): void {
   const preserved =
     preservedMaterials instanceof Set
@@ -31,7 +32,9 @@ export function disposeObject3D(
     for (const material of materials) {
       if (!material || preserved.has(material)) continue
       for (const value of Object.values(material)) {
-        if (value instanceof THREE.Texture) value.dispose()
+        if (value instanceof THREE.Texture && !preservedTextures.has(value)) {
+          value.dispose()
+        }
       }
       material.dispose()
     }
@@ -59,6 +62,7 @@ export class SceneModelManager implements ModelManagerInterface {
   originalFileName: string | null = null
   originalURL: string | null = null
   appliedTexture: THREE.Texture | null = null
+  private ownsAppliedTexture = true
   textureLoader: THREE.TextureLoader
   skeletonHelper: THREE.SkeletonHelper | null = null
   showSkeleton: boolean = false
@@ -185,10 +189,11 @@ export class SceneModelManager implements ModelManagerInterface {
     this.depthMaterial.dispose()
     this.clayMaterial.dispose()
 
-    if (this.appliedTexture) {
+    if (this.appliedTexture && this.ownsAppliedTexture) {
       this.appliedTexture.dispose()
-      this.appliedTexture = null
     }
+    this.appliedTexture = null
+    this.ownsAppliedTexture = true
   }
 
   createSTLMaterial(): THREE.MeshStandardMaterial {
@@ -199,6 +204,11 @@ export class SceneModelManager implements ModelManagerInterface {
       flatShading: false,
       side: THREE.DoubleSide
     })
+  }
+
+  borrowAppliedTexture(texture: THREE.Texture): void {
+    this.appliedTexture = texture
+    this.ownsAppliedTexture = false
   }
 
   private removeAllMainModelsFromScene(): void {
@@ -360,7 +370,13 @@ export class SceneModelManager implements ModelManagerInterface {
       this.scene.remove(obj)
 
       this.restoreOriginalMaterials(obj)
-      disposeObject3D(obj, this.preservedMaterials)
+      disposeObject3D(
+        obj,
+        this.preservedMaterials,
+        this.ownsAppliedTexture || !this.appliedTexture
+          ? new Set()
+          : new Set([this.appliedTexture])
+      )
       this.disposeModelViaAdapter(obj)
     })
 
@@ -376,10 +392,11 @@ export class SceneModelManager implements ModelManagerInterface {
     this.originalFileName = null
     this.originalURL = null
 
-    if (this.appliedTexture) {
+    if (this.appliedTexture && this.ownsAppliedTexture) {
       this.appliedTexture.dispose()
-      this.appliedTexture = null
     }
+    this.appliedTexture = null
+    this.ownsAppliedTexture = true
 
     if (this.skeletonHelper) {
       this.scene.remove(this.skeletonHelper)

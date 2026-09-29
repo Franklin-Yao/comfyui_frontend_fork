@@ -421,7 +421,10 @@ describe('load3dService', () => {
         originalModel: null as unknown,
         materialMode: 'original',
         currentUpDirection: 'original',
-        appliedTexture: null as unknown
+        appliedTexture: null as unknown,
+        borrowAppliedTexture(texture: unknown) {
+          this.appliedTexture = texture
+        }
       }
       const animationManager = {
         setupModelAnimations: vi.fn()
