@@ -152,7 +152,7 @@ async function renderThumbnail(
   const deadline = new AbortController()
   const onSignalAbort = () => deadline.abort()
   signal.addEventListener('abort', onSignalAbort, { once: true })
-  let timer: ReturnType<typeof setTimeout>
+  let timer: ReturnType<typeof setTimeout> | undefined
   const timedOut = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
       deadline.abort()
@@ -165,7 +165,7 @@ async function renderThumbnail(
       timedOut
     ])
   } finally {
-    clearTimeout(timer!)
+    if (timer !== undefined) clearTimeout(timer)
     deadline.abort()
     signal.removeEventListener('abort', onSignalAbort)
   }
