@@ -6,7 +6,7 @@ import {
 } from './redactTelemetryUrls'
 
 describe('redactTelemetryUrls', () => {
-  it.each([
+  describe.each([
     {
       kind: 'absolute query',
       input: 'https://example.com/model.glb?email=a@b.com&token=private',
@@ -27,8 +27,10 @@ describe('redactTelemetryUrls', () => {
       input: '/api/view?sig=SECRET&x=1?y=2',
       expected: '/api/view'
     }
-  ])('redacts $kind', ({ input, expected }) => {
-    expect(redactTelemetryUrls(input)).toBe(expected)
+  ])('$kind', ({ input, expected }) => {
+    it('redacts URL metadata', () => {
+      expect(redactTelemetryUrls(input)).toBe(expected)
+    })
   })
 
   it('redacts adjacent URLs without consuming punctuation or stack locations', () => {
