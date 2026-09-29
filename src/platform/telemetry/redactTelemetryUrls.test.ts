@@ -23,6 +23,16 @@ describe('redactTelemetryUrls', () => {
       expected: '//example.com/model.glb'
     },
     {
+      kind: 'credentials containing URL sub-delimiters',
+      input: 'https://user:pa,ss;word@example.com/model.glb',
+      expected: 'https://example.com/model.glb'
+    },
+    {
+      kind: 'query values containing URL sub-delimiters',
+      input: 'https://example.com/model.glb?token=private,still;private',
+      expected: 'https://example.com/model.glb'
+    },
+    {
       kind: 'root-relative query',
       input: '/api/view?sig=SECRET&x=1?y=2',
       expected: '/api/view'

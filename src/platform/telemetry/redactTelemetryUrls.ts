@@ -1,9 +1,13 @@
 /** Remove credentials, query strings, and fragments from URL-shaped text. */
 export function redactTelemetryUrls(text: string): string {
   return text.replace(
-    /(?:https?:)?\/\/[^\s"',;<>]+|\/[A-Za-z0-9._~%-][^\s"',;<>]*/g,
+    /(?:https?:)?\/\/(?:(?![,;](?=(?:https?:)?\/\/))[^\s"'<>])+|\/[A-Za-z0-9._~%-](?:(?![,;](?=(?:https?:)?\/\/))[^\s"'<>])*/g,
     (token) => {
       let trailing = ''
+      while (token.endsWith(',') || token.endsWith(';')) {
+        trailing = token.at(-1) + trailing
+        token = token.slice(0, -1)
+      }
       while (
         (token.endsWith(')') &&
           token.split(')').length > token.split('(').length) ||
