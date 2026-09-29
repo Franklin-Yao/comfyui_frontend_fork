@@ -49,6 +49,7 @@ test.describe('Agent reply assets', { tag: '@cloud' }, () => {
     test.setTimeout(60_000)
 
     const lookedUpModels = await agentPanel.mockReplyAssetPreviews()
+
     await test.step('send a reply containing model assets', async () => {
       await agentPanel.open()
       await agentPanel.sendMessage('show me every mesh')
