@@ -7,7 +7,8 @@ import Load3d from '@/extensions/core/load3d/Load3d'
 import type {
   CameraState,
   GizmoMode,
-  LoadModelOutcome
+  LoadModelOutcome,
+  LoaderManagerInterface
 } from '@/extensions/core/load3d/interfaces'
 import type { PointerNdcSource } from '@/extensions/core/load3d/load3dViewport'
 
@@ -950,6 +951,11 @@ describe('Load3d', () => {
           modelManager.currentModel = null
         })
       }
+      const loadModel: LoaderManagerInterface['loadModel'] = vi.fn(async () => {
+        await pendingLoad
+        modelManager.currentModel = loadedModel
+        return 'loaded'
+      })
       Object.assign(ctx.load3d, {
         _loadGeneration: 0,
         loadingPromise: null,
@@ -961,10 +967,7 @@ describe('Load3d', () => {
         },
         controlsManager: { ...ctx.controlsManager, reset: vi.fn() },
         loaderManager: {
-          loadModel: vi.fn(async () => {
-            await pendingLoad
-            modelManager.currentModel = loadedModel
-          })
+          loadModel
         },
         modelManager,
         animationManager: {
