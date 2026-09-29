@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fromPartial } from '@total-typescript/shoehorn'
+import type * as THREE from 'three'
 
+import type Load3d from '@/extensions/core/load3d/Load3d'
 import { generateModelThumbnail } from './modelThumbnail'
+
+type ThumbnailLoad3d = Pick<
+  Load3d,
+  'loadModel' | 'captureThumbnail' | 'remove'
+>
 
 const isAssetPreviewSupported = vi.hoisted(() => vi.fn(() => false))
 const persistThumbnail = vi.hoisted(() =>
@@ -11,8 +19,8 @@ vi.mock(import('@/platform/assets/utils/assetPreviewUtil'), () => ({
   persistThumbnail
 }))
 
-const createLoad3d = vi.hoisted(() => vi.fn())
-vi.mock(import('@/extensions/core/load3d/createLoad3d'), () => ({
+const createLoad3d = vi.hoisted(() => vi.fn<() => ThumbnailLoad3d>())
+vi.mock<unknown>(import('@/extensions/core/load3d/createLoad3d'), () => ({
   createLoad3d
 }))
 
@@ -24,7 +32,9 @@ vi.mock(import('@/renderer/three/sharedWebGLRenderer'), { spy: true })
 
 import { acquireSharedRenderer } from '@/renderer/three/sharedWebGLRenderer'
 
-function mockInstance(overrides: Record<string, unknown> = {}) {
+function mockInstance(
+  overrides: Partial<ThumbnailLoad3d> = {}
+): ThumbnailLoad3d {
   return {
     loadModel: vi.fn().mockResolvedValue('loaded'),
     captureThumbnail: vi.fn().mockResolvedValue('data:image/png;base64,thumb'),
@@ -41,7 +51,7 @@ describe('generateModelThumbnail', () => {
     reportError.mockReset()
     releaseSharedRenderer.mockReset()
     vi.mocked(acquireSharedRenderer).mockReturnValue({
-      renderer: {} as never,
+      renderer: fromPartial<THREE.WebGLRenderer>({}),
       release: releaseSharedRenderer
     })
   })
