@@ -23,7 +23,7 @@ vi.mock(import('@/platform/distribution/types'), () => mockDistribution)
 
 vi.mock(import('@/platform/remoteConfig/remoteConfig'))
 vi.mock(import('@/platform/telemetry/reportError'), () => ({
-  reportError: vi.fn()
+  reportError: vi.fn<typeof reportError>()
 }))
 
 const featureState = vi.hoisted(() => ({
