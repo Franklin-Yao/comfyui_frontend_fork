@@ -513,6 +513,31 @@ describe('ReplyAssetGroup', () => {
     expect(thumb).toHaveAttribute('src', 'https://x/mesh_preview.png')
   })
 
+  it('cancels dialog refresh work when its model becomes hidden', async () => {
+    isAssetPreviewSupported.mockReturnValue(true)
+    const { rerender } = renderGroup([model])
+    await waitFor(() => expect(findServerPreviewUrl).toHaveBeenCalledOnce())
+    await userEvent.click(screen.getByRole('button', { name: 'mesh.glb' }))
+
+    let resolveRefresh!: (value: string | null) => void
+    findServerPreviewUrl.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRefresh = resolve
+      })
+    )
+    const dialog = vi.mocked(useDialogStore().showDialog).mock.calls.at(-1)?.[0]
+    const onClose = dialog?.dialogComponentProps?.onClose
+    expect(onClose).toBeTypeOf('function')
+    onClose!()
+    await rerender({ assets: [audio] })
+
+    resolveRefresh('https://x/mesh_preview.png')
+    await Promise.resolve()
+
+    expect(screen.queryByRole('img', { name: 'mesh.glb' })).toBeNull()
+    expect(findServerPreviewUrl).toHaveBeenCalledTimes(2)
+  })
+
   it('titles the 3D viewer with the resolved asset name', async () => {
     isAssetPreviewSupported.mockReturnValue(true)
     findOutputAsset.mockResolvedValue({ name: '3d/ComfyUI_00001_.glb' })

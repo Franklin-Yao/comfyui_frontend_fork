@@ -97,8 +97,11 @@ const THUMBNAIL_RETRY_DELAY_MS = 2000
 
 const thumbnailState = ref<Record<string, ThumbnailState>>({})
 const assetNames = ref<Record<string, string>>({})
-/** Dialog-close refresh timers; not tied to a url, so bulk-cleared on unmount. */
-const refreshTimeouts = new Set<ReturnType<typeof setTimeout>>()
+type RefreshState = {
+  controller: AbortController
+  timeout?: ReturnType<typeof setTimeout>
+}
+const refreshState = new Map<string, RefreshState>()
 let mounted = true
 
 /** Stop whatever `state` has in flight: an abortable render or a pending retry. */
@@ -112,8 +115,11 @@ onBeforeUnmount(() => {
   for (const state of Object.values(thumbnailState.value)) {
     cancelThumbnailState(state)
   }
-  for (const timeout of refreshTimeouts) clearTimeout(timeout)
-  refreshTimeouts.clear()
+  for (const state of refreshState.values()) {
+    state.controller.abort()
+    if (state.timeout !== undefined) clearTimeout(state.timeout)
+  }
+  refreshState.clear()
 })
 
 /** Whether `url`'s current entry is still the `loading` strand owned by `controller`. */
@@ -182,6 +188,7 @@ function scheduleThumbnailRetry(
 
 /** Frees the shared render queue when a 3D asset leaves `visibleVisual`. */
 function hideThumbnail(url: string): void {
+  cancelRefresh(url)
   const state = thumbnailState.value[url]
   if (state?.phase === 'ready' || state?.phase === 'gaveUp') return
   cancelThumbnailState(state)
@@ -189,6 +196,14 @@ function hideThumbnail(url: string): void {
     phase: 'paused',
     attempts: state?.attempts ?? 0
   }
+}
+
+function cancelRefresh(url: string): void {
+  const state = refreshState.get(url)
+  if (!state) return
+  state.controller.abort()
+  if (state.timeout !== undefined) clearTimeout(state.timeout)
+  refreshState.delete(url)
 }
 
 /**
@@ -242,21 +257,37 @@ const MediaLightbox = defineAsyncComponent(
 function refreshModelThumbnail(asset: ReplyAsset, retry = true): void {
   const state = thumbnailState.value[asset.url]
   if (!mounted || !isAssetPreviewSupported() || state?.phase === 'ready') return
-  void findServerPreviewUrl(asset.filename).then((preview) => {
-    if (!mounted) return
-    if (preview) {
-      // Overwriting a `loading`/`retryPending` entry would leave its
-      // controller/timer unreachable, so cancel before replacing it.
-      cancelThumbnailState(thumbnailState.value[asset.url])
-      thumbnailState.value[asset.url] = { phase: 'ready', src: preview }
-    } else if (retry) {
-      const timeout = setTimeout(() => {
-        refreshTimeouts.delete(timeout)
-        refreshModelThumbnail(asset, false)
-      }, 2000)
-      refreshTimeouts.add(timeout)
-    }
-  })
+  cancelRefresh(asset.url)
+  const controller = markRaw(new AbortController())
+  const refresh: RefreshState = { controller }
+  refreshState.set(asset.url, refresh)
+  void findServerPreviewUrl(asset.filename)
+    .then((preview) => {
+      if (
+        !mounted ||
+        controller.signal.aborted ||
+        refreshState.get(asset.url)?.controller !== controller
+      )
+        return
+      if (preview) {
+        cancelThumbnailState(thumbnailState.value[asset.url])
+        thumbnailState.value[asset.url] = { phase: 'ready', src: preview }
+        refreshState.delete(asset.url)
+      } else if (retry) {
+        refresh.timeout = setTimeout(() => {
+          if (refreshState.get(asset.url)?.controller !== controller) return
+          refreshState.delete(asset.url)
+          refreshModelThumbnail(asset, false)
+        }, 2000)
+      } else {
+        refreshState.delete(asset.url)
+      }
+    })
+    .catch(() => {
+      if (refreshState.get(asset.url)?.controller === controller) {
+        refreshState.delete(asset.url)
+      }
+    })
 }
 
 function modelThumbnailSrc(url: string): string {
