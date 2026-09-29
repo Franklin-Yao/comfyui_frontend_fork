@@ -951,11 +951,13 @@ describe('Load3d', () => {
           modelManager.currentModel = null
         })
       }
-      const loadModel: LoaderManagerInterface['loadModel'] = vi.fn(async () => {
-        await pendingLoad
-        modelManager.currentModel = loadedModel
-        return 'loaded'
-      })
+      const loadModel: LoaderManagerInterface['loadModel'] = vi.fn(
+        async (): Promise<LoadModelOutcome> => {
+          await pendingLoad
+          modelManager.currentModel = loadedModel
+          return 'loaded'
+        }
+      )
       Object.assign(ctx.load3d, {
         _loadGeneration: 0,
         loadingPromise: null,
