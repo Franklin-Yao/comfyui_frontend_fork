@@ -1,7 +1,9 @@
 import { expect } from '@playwright/test'
-import type { Locator, Page } from '@playwright/test'
+import type { Locator, Page, Route } from '@playwright/test'
 
 import enMessages from '@/locales/en/main.json' with { type: 'json' }
+import { jsonRoute } from '@e2e/fixtures/utils/jsonRoute'
+import { transparentPng } from '@e2e/fixtures/utils/viewFileMocks'
 
 export class AgentPanel {
   public readonly root: Locator
@@ -19,6 +21,8 @@ export class AgentPanel {
   public readonly composer: Locator
   public readonly sendButton: Locator
   public readonly nodeSelectionBanner: Locator
+  public readonly replyAssetTiles: Locator
+  public readonly replyAssetThumbnails: Locator
 
   constructor(private readonly page: Page) {
     this.root = page.locator('#agent-panel-root')
@@ -49,6 +53,8 @@ export class AgentPanel {
       name: enMessages.agent.send
     })
     this.nodeSelectionBanner = page.getByTestId('node-selection-mode-banner')
+    this.replyAssetTiles = this.root.getByRole('button', { name: /^mesh-\d+$/ })
+    this.replyAssetThumbnails = this.root.locator('img[alt^="mesh-"]')
   }
 
   /**
@@ -88,6 +94,28 @@ export class AgentPanel {
   async sendMessage(message: string): Promise<void> {
     await this.composer.fill(message)
     await this.sendButton.click()
+  }
+
+  async mockReplyAssetPreviews(): Promise<string[]> {
+    const lookedUp: string[] = []
+    await this.page.route('**/api/assets**', (route: Route) => {
+      const url = new URL(route.request().url())
+      if (url.pathname.endsWith('/content')) {
+        return route.fulfill({ contentType: 'image/png', body: transparentPng })
+      }
+      const name =
+        url.searchParams.get('hash') ?? url.searchParams.get('name_contains')
+      if (!name) return route.fulfill(jsonRoute({ assets: [] }))
+      if (/^mesh-\d+\.glb$/.test(name)) lookedUp.push(name)
+      return route.fulfill(
+        jsonRoute({
+          assets: [
+            { id: `asset-${name}`, name, hash: name, preview_id: `preview-${name}` }
+          ]
+        })
+      )
+    })
+    return lookedUp
   }
 
   async enterNodeSelectionMode(): Promise<void> {

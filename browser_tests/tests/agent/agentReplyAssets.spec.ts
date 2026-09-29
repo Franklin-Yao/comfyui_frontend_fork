@@ -1,4 +1,4 @@
-import type { Route, WebSocketRoute } from '@playwright/test'
+import type { WebSocketRoute } from '@playwright/test'
 import { expect, mergeTests } from '@playwright/test'
 
 import { webSocketFixture } from '@e2e/fixtures/ws'
@@ -7,8 +7,6 @@ import enMessages from '@/locales/en/main.json' with { type: 'json' }
 import type { FeatureFlagsWsMessage } from '@/platform/remote/comfyui/execution/types'
 import type { AgentWsEvent } from '@/workbench/extensions/agent/schemas/agentApiSchema'
 
-import { jsonRoute } from '@e2e/fixtures/utils/jsonRoute'
-import { transparentPng } from '@e2e/fixtures/utils/viewFileMocks'
 import {
   MESSAGE_DONE_EVENT,
   agentTest,
@@ -36,94 +34,47 @@ function pushEvent(ws: WebSocketRoute, event: WsFrame): void {
   ws.send(JSON.stringify(event))
 }
 
-/**
- * Names the component asked the asset API about, in request order. Every
- * looked-up model answers with a ready preview, so a tile renders without
- * needing a WebGL thumbnail render.
- */
-const test = mergeTests(agentTest, webSocketFixture).extend<{
-  lookedUpModels: string[]
-}>({
-  lookedUpModels: async ({ page }, use) => {
-    const lookedUp: string[] = []
-
-    await page.route('**/api/assets**', (route: Route) => {
-      const url = new URL(route.request().url())
-      if (url.pathname.endsWith('/content'))
-        return route.fulfill({
-          contentType: 'image/png',
-          body: transparentPng
-        })
-
-      const name =
-        url.searchParams.get('hash') ?? url.searchParams.get('name_contains')
-      if (!name) return route.fulfill(jsonRoute({ assets: [] }))
-
-      if (/^mesh-\d+\.glb$/.test(name)) lookedUp.push(name)
-      return route.fulfill(
-        jsonRoute({
-          assets: [
-            {
-              id: `asset-${name}`,
-              name,
-              hash: name,
-              preview_id: `preview-${name}`
-            }
-          ]
-        })
-      )
-    })
-
-    await use(lookedUp)
-  }
-})
+const test = mergeTests(agentTest, webSocketFixture)
 
 test.describe('Agent reply assets', { tag: '@cloud' }, () => {
   test.use({ connectWebSocketToServer: false })
 
   test('looks up 3D previews only for the reply assets on screen', async ({
-    comfyPage,
+    agentPanel,
     postedMessages,
-    getWebSocket,
-    lookedUpModels
+    getWebSocket
   }) => {
     // The new-test video gate runs with SLOW_MO=250; leave headroom for the
     // 13-tile expand path while retaining bounded failure reporting.
     test.setTimeout(60_000)
 
-    const page = comfyPage.page
-    await page
-      .getByRole('button', { name: enMessages.agent.entryButton })
-      .click()
+    const lookedUpModels = await agentPanel.mockReplyAssetPreviews()
+    await test.step('send a reply containing model assets', async () => {
+      await agentPanel.open()
+      await agentPanel.sendMessage('show me every mesh')
+      await expect.poll(() => postedMessages.length).toBeGreaterThanOrEqual(1)
+      const ws = await getWebSocket()
+      pushEvent(ws, { type: 'feature_flags', data: { assets: true } })
+      pushEvent(ws, messageDeltaEvent(MODEL_REPLY))
+      pushEvent(ws, MESSAGE_DONE_EVENT)
+    })
 
-    const panel = page.locator('#agent-panel-root')
-    await panel
-      .getByRole('textbox', { name: /^Describe ideas/ })
-      .fill('show me every mesh')
+    await test.step('render only the collapsed model previews', async () => {
+      await expect(agentPanel.replyAssetTiles).toHaveCount(COLLAPSED_COUNT)
+      await expect(agentPanel.replyAssetThumbnails).toHaveCount(COLLAPSED_COUNT)
+      expect([...new Set(lookedUpModels)].sort()).toEqual(
+        [...VISIBLE_MODELS].sort()
+      )
+    })
 
-    const ws = await getWebSocket()
-    await panel.getByRole('button', { name: enMessages.agent.send }).click()
-    await expect.poll(() => postedMessages.length).toBeGreaterThanOrEqual(1)
-
-    pushEvent(ws, { type: 'feature_flags', data: { assets: true } })
-    pushEvent(ws, messageDeltaEvent(MODEL_REPLY))
-    pushEvent(ws, MESSAGE_DONE_EVENT)
-
-    const tiles = panel.getByRole('button', { name: /^mesh-\d+$/ })
-    const thumbnails = panel.locator('img[alt^="mesh-"]')
-
-    await expect(tiles).toHaveCount(COLLAPSED_COUNT)
-    await expect(thumbnails).toHaveCount(COLLAPSED_COUNT)
-    expect(
-      [...new Set(lookedUpModels)].sort(),
-      'a collapsed reply must look up the models it shows, and only those'
-    ).toEqual([...VISIBLE_MODELS].sort())
-
-    await panel.getByRole('button', { name: enMessages.agent.showMore }).click()
-
-    await expect(tiles).toHaveCount(MODEL_COUNT)
-    await expect(thumbnails).toHaveCount(MODEL_COUNT)
-    await expect.poll(() => new Set(lookedUpModels).size).toBe(MODEL_COUNT)
-    expect(lookedUpModels).toContain(HIDDEN_MODEL)
+    await test.step('expand and render the remaining model preview', async () => {
+      await agentPanel.root
+        .getByRole('button', { name: enMessages.agent.showMore })
+        .click()
+      await expect(agentPanel.replyAssetTiles).toHaveCount(MODEL_COUNT)
+      await expect(agentPanel.replyAssetThumbnails).toHaveCount(MODEL_COUNT)
+      await expect.poll(() => new Set(lookedUpModels).size).toBe(MODEL_COUNT)
+      expect(lookedUpModels).toContain(HIDDEN_MODEL)
+    })
   })
 })
