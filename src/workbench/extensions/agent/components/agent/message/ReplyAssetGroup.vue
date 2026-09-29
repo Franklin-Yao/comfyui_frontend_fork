@@ -81,15 +81,18 @@ const galleryIndex = ref(-1)
  * every pending strand.
  */
 type ThumbnailState =
-  | { phase: 'loading'; controller: AbortController }
+  | { phase: 'loading'; controller: AbortController; attempts: number }
   | {
       phase: 'retryPending'
       timeout: ReturnType<typeof setTimeout>
+      attempts: number
     }
+  | { phase: 'paused'; attempts: number }
   | { phase: 'ready'; src: string }
   | { phase: 'gaveUp' }
 
-const MAX_THUMBNAIL_RETRY_ATTEMPTS = 2
+/** Retries after the initial render attempt. */
+const MAX_THUMBNAIL_RETRIES = 2
 const THUMBNAIL_RETRY_DELAY_MS = 2000
 
 const thumbnailState = ref<Record<string, ThumbnailState>>({})
@@ -122,7 +125,7 @@ function owns(url: string, controller: AbortController): boolean {
 /** Look up a server-rendered preview, falling back to an offscreen render. */
 function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
   const controller = markRaw(new AbortController())
-  thumbnailState.value[url] = { phase: 'loading', controller }
+  thumbnailState.value[url] = { phase: 'loading', controller, attempts }
 
   void findServerPreviewUrl(filename).then(async (preview) => {
     if (!mounted || !owns(url, controller)) return
@@ -140,9 +143,11 @@ function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
       thumbnailState.value[url] = { phase: 'ready', src: result.dataUrl }
     } else if (result.status === 'failed') {
       scheduleThumbnailRetry(url, filename, attempts)
+    } else {
+      thumbnailState.value[url] = { phase: 'gaveUp' }
     }
-    // 'cancelled' leaves no entry here — hideThumbnail already removed it
-    // synchronously when the abort was issued.
+    // A hide/unmount abort no longer owns this strand, while a queue-cap
+    // cancellation still does and settles to gaveUp above.
   })
 }
 
@@ -156,7 +161,7 @@ function scheduleThumbnailRetry(
   filename: string,
   attempts: number
 ): void {
-  if (attempts >= MAX_THUMBNAIL_RETRY_ATTEMPTS) {
+  if (attempts >= MAX_THUMBNAIL_RETRIES) {
     thumbnailState.value[url] = { phase: 'gaveUp' }
     return
   }
@@ -166,7 +171,8 @@ function scheduleThumbnailRetry(
   }, THUMBNAIL_RETRY_DELAY_MS)
   thumbnailState.value[url] = {
     phase: 'retryPending',
-    timeout: markRaw(timeout)
+    timeout: markRaw(timeout),
+    attempts
   }
 }
 
@@ -175,7 +181,10 @@ function hideThumbnail(url: string): void {
   const state = thumbnailState.value[url]
   if (state?.phase === 'ready' || state?.phase === 'gaveUp') return
   cancelThumbnailState(state)
-  delete thumbnailState.value[url]
+  thumbnailState.value[url] = {
+    phase: 'paused',
+    attempts: state?.attempts ?? 0
+  }
 }
 
 /**
@@ -183,7 +192,11 @@ function hideThumbnail(url: string): void {
  * flight, ready, or has spent its retry budget.
  */
 function showThumbnail(url: string, filename: string): void {
-  if (!thumbnailState.value[url]) loadModelThumbnail(url, filename)
+  const state = thumbnailState.value[url]
+  if (!state) loadModelThumbnail(url, filename)
+  else if (state.phase === 'paused') {
+    loadModelThumbnail(url, filename, state.attempts)
+  }
 }
 
 watch(

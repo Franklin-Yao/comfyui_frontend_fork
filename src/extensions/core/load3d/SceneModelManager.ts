@@ -16,8 +16,12 @@ import type {
 
 export function disposeObject3D(
   object: THREE.Object3D,
-  standardMaterial: THREE.Material
+  preservedMaterials: THREE.Material | ReadonlySet<THREE.Material>
 ): void {
+  const preserved =
+    preservedMaterials instanceof Set
+      ? preservedMaterials
+      : new Set([preservedMaterials])
   object.traverse((child) => {
     if (!(child instanceof THREE.Mesh || child instanceof THREE.Points)) return
     child.geometry?.dispose()
@@ -25,7 +29,7 @@ export function disposeObject3D(
       ? child.material
       : [child.material]
     for (const material of materials) {
-      if (!material || material === standardMaterial) continue
+      if (!material || preserved.has(material)) continue
       for (const value of Object.values(material)) {
         if (value instanceof THREE.Texture) value.dispose()
       }
@@ -72,6 +76,16 @@ export class SceneModelManager implements ModelManagerInterface {
     size: THREE.Vector3
     center: THREE.Vector3
   } | null
+
+  private get preservedMaterials(): ReadonlySet<THREE.Material> {
+    return new Set([
+      this.normalMaterial,
+      this.standardMaterial,
+      this.wireframeMaterial,
+      this.depthMaterial,
+      this.clayMaterial
+    ])
+  }
 
   constructor(
     scene: THREE.Scene,
@@ -193,7 +207,7 @@ export class SceneModelManager implements ModelManagerInterface {
       if (obj.name === 'MainModel') oldMainModels.push(obj)
     })
     oldMainModels.forEach((oldModel) => {
-      disposeObject3D(oldModel, this.standardMaterial)
+      disposeObject3D(oldModel, this.preservedMaterials)
       this.disposeModelViaAdapter(oldModel)
       this.scene.remove(oldModel)
     })
@@ -336,7 +350,7 @@ export class SceneModelManager implements ModelManagerInterface {
     objectsToRemove.forEach((obj) => {
       this.scene.remove(obj)
 
-      disposeObject3D(obj, this.standardMaterial)
+      disposeObject3D(obj, this.preservedMaterials)
       this.disposeModelViaAdapter(obj)
     })
 

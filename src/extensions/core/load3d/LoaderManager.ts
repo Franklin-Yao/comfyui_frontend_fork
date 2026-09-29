@@ -115,6 +115,7 @@ export class LoaderManager implements LoaderManagerInterface {
         // the catch block and in modelThumbnail.ts's reportError call).
         if (options?.silent) throw new TypeError('Unknown model file type')
         useToastStore().addAlert(t('toastMessages.couldNotDetermineFileType'))
+        this.eventManager.emitEvent('modelLoadingEnd', null)
         return 'empty'
       }
 

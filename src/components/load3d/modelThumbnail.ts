@@ -5,9 +5,16 @@ import {
   persistThumbnail
 } from '@/platform/assets/utils/assetPreviewUtil'
 import { reportError } from '@/platform/telemetry/reportError'
+import { redactTelemetryUrls } from '@/platform/telemetry/redactTelemetryUrls'
+import { acquireSharedRenderer } from '@/renderer/three/sharedWebGLRenderer'
+import type { SharedRendererHandle } from '@/renderer/three/sharedWebGLRenderer'
 
 let queue: Promise<unknown> = Promise.resolve()
 const MODEL_LOAD_TIMEOUT_MS = 15_000
+const MAX_QUEUED_RENDERS = 32
+const RENDER_CANCELLED = new Error('Model thumbnail render cancelled')
+let queuedRenderCount = 0
+let rendererKeepAlive: SharedRendererHandle | null = null
 
 /**
  * `modelUrl` on the agent path is untrusted — it is the raw `href` from the
@@ -16,23 +23,13 @@ const MODEL_LOAD_TIMEOUT_MS = 15_000
  * message and stack both reach `reportError`, so absolute and root-relative
  * URL-shaped tokens are stripped of credentials and query strings here.
  */
-function redactUrls(text: string): string {
-  return text
-    .replace(
-      /(?:https?:)?\/\/(?:[^\s"']*@)?[^\s"']+/g,
-      (match) =>
-        match.replace(/^((?:https?:)?\/\/)[^@\s"']*@/, '$1').split('?')[0]
-    )
-    .replace(/(\/[^\s"']*)\?[^\s"']*/g, '$1')
-}
-
 function redactedCopy(error: unknown): Error {
   const source = error instanceof Error ? error : new Error(String(error))
   // `cause` is deliberately not propagated: Sentry's linkedErrorsIntegration
   // walks it by default and would re-leak the unscrubbed original.
-  const redacted = new Error(redactUrls(source.message))
+  const redacted = new Error(redactTelemetryUrls(source.message))
   redacted.name = source.name
-  if (source.stack) redacted.stack = redactUrls(source.stack)
+  if (source.stack) redacted.stack = redactTelemetryUrls(source.stack)
   return redacted
 }
 
@@ -61,6 +58,12 @@ export function generateModelThumbnail(
   assetName: string,
   callerSignal?: AbortSignal
 ): Promise<ModelThumbnailResult> {
+  if (callerSignal?.aborted || queuedRenderCount >= MAX_QUEUED_RENDERS) {
+    return Promise.resolve({ status: 'cancelled' })
+  }
+
+  rendererKeepAlive ??= acquireSharedRenderer()
+  queuedRenderCount++
   const run = queue.then(
     (): ModelThumbnailResult | Promise<ModelThumbnailResult> =>
       callerSignal?.aborted
@@ -68,7 +71,13 @@ export function generateModelThumbnail(
         : renderThumbnailWithTimeout(modelUrl, assetName, callerSignal)
   )
   queue = run.catch(() => null)
-  return run
+  return run.finally(() => {
+    queuedRenderCount--
+    if (queuedRenderCount === 0) {
+      rendererKeepAlive?.release()
+      rendererKeepAlive = null
+    }
+  })
 }
 
 async function renderThumbnailWithTimeout(
@@ -106,7 +115,9 @@ async function renderThumbnailWithTimeout(
     // Classify by the caught error's identity, not `callerSignal.aborted` at
     // catch time: a mutable flag read after the fact cannot tell a genuine
     // render fault from an unrelated abort landing in the same tick.
-    if (error === cancelError) return { status: 'cancelled' }
+    if (error === cancelError || error === RENDER_CANCELLED) {
+      return { status: 'cancelled' }
+    }
     reportError(redactedCopy(error), {
       errorType: 'agent_model_thumbnail_generation_failure'
     })
@@ -174,7 +185,10 @@ async function renderThumbnailInner(
   signal.addEventListener('abort', remove, { once: true })
 
   try {
-    await load3d.loadModel(modelUrl, undefined, { silent: true })
+    const outcome = await load3d.loadModel(modelUrl, undefined, {
+      silent: true
+    })
+    if (outcome !== 'loaded') throw RENDER_CANCELLED
     signal.throwIfAborted()
     const dataUrl = await load3d.captureThumbnail(256, 256)
     signal.throwIfAborted()

@@ -409,7 +409,10 @@ class Load3d extends Viewport3d {
     // successful load runs the post-load camera/animation restore below —
     // those touch state (`currentModel`, camera) that a cancelled load may
     // have left mid-teardown.
-    if (outcome !== 'loaded') return outcome
+    if (outcome !== 'loaded') {
+      this.hasLoadedModel = false
+      return outcome
+    }
 
     if (this.modelManager.currentModel) {
       this.animationManager.setupModelAnimations(

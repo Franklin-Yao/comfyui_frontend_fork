@@ -2,6 +2,10 @@ import type { App } from 'vue'
 import { browserApiErrorsIntegration, init as sentryInit } from '@sentry/vue'
 
 import { sentryThirdPartyErrorFilter } from './thirdPartyErrorNoise'
+import {
+  redactTelemetryUrls,
+  redactTelemetryValues
+} from './redactTelemetryUrls'
 
 export function initSentry({
   app,
@@ -24,6 +28,24 @@ export function initSentry({
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
     beforeSend: sentryThirdPartyErrorFilter,
+    beforeBreadcrumb: (breadcrumb) => ({
+      ...breadcrumb,
+      message: breadcrumb.message
+        ? redactTelemetryUrls(breadcrumb.message)
+        : breadcrumb.message,
+      data: redactTelemetryValues(breadcrumb.data)
+    }),
+    beforeSendSpan: (span) => {
+      if (span.description) {
+        span.description = redactTelemetryUrls(span.description)
+      }
+      for (const [key, value] of Object.entries(span.data)) {
+        if (typeof value === 'string') {
+          span.data[key] = redactTelemetryUrls(value)
+        }
+      }
+      return span
+    },
     // Only set these for non-cloud builds
     ...(isCloud
       ? {

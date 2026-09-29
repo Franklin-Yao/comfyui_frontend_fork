@@ -609,6 +609,17 @@ describe('LoaderManager', () => {
       expect(useToastStore().addAlert).not.toHaveBeenCalled()
     })
 
+    it('ends loading when a visible load has no file type', async () => {
+      const { lm, eventManager } = makeLoaderManager()
+
+      await expect(lm.loadModel('api/view?type=output')).resolves.toBe('empty')
+
+      expect(eventManager.emitEvent).toHaveBeenCalledWith(
+        'modelLoadingEnd',
+        null
+      )
+    })
+
     it('rejects when no adapter claims the extension and silent is set', async () => {
       const { lm, modelManager } = makeLoaderManager()
 

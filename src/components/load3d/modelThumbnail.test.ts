@@ -19,9 +19,14 @@ vi.mock(import('@/extensions/core/load3d/createLoad3d'), () => ({
 const reportError = vi.hoisted(() => vi.fn())
 vi.mock(import('@/platform/telemetry/reportError'), () => ({ reportError }))
 
+const releaseSharedRenderer = vi.hoisted(() => vi.fn())
+vi.mock(import('@/renderer/three/sharedWebGLRenderer'), { spy: true })
+
+import { acquireSharedRenderer } from '@/renderer/three/sharedWebGLRenderer'
+
 function mockInstance(overrides: Record<string, unknown> = {}) {
   return {
-    loadModel: vi.fn().mockResolvedValue(undefined),
+    loadModel: vi.fn().mockResolvedValue('loaded'),
     captureThumbnail: vi.fn().mockResolvedValue('data:image/png;base64,thumb'),
     remove: vi.fn(),
     ...overrides
@@ -34,6 +39,11 @@ describe('generateModelThumbnail', () => {
     isAssetPreviewSupported.mockReset().mockReturnValue(false)
     persistThumbnail.mockReset()
     reportError.mockReset()
+    releaseSharedRenderer.mockReset()
+    vi.mocked(acquireSharedRenderer).mockReturnValue({
+      renderer: {} as never,
+      release: releaseSharedRenderer
+    })
   })
 
   it('renders offscreen, returns the data url, and disposes the instance', async () => {
