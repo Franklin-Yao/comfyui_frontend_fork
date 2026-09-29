@@ -87,7 +87,9 @@ test.describe('Agent reply assets', { tag: '@cloud' }, () => {
     getWebSocket,
     lookedUpModels
   }) => {
-    test.setTimeout(30_000)
+    // The new-test video gate runs with SLOW_MO=250; leave headroom for the
+    // 13-tile expand path while retaining bounded failure reporting.
+    test.setTimeout(60_000)
 
     const page = comfyPage.page
     await page
