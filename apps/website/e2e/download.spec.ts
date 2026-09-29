@@ -156,7 +156,7 @@ test.describe('Download page @smoke', () => {
         .getByRole('link')
       await expect(installers).toHaveText([
         'Windows x64',
-        'Windows ARM64 (NVIDIA GPU)',
+        'Windows ARM64',
         'macOS (Apple Silicon)'
       ])
       for (const installer of await installers.all()) {

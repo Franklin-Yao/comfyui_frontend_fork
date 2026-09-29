@@ -45,10 +45,7 @@ describe('InstallerLinks', () => {
       ])
     ).toEqual([
       ['Windows x64', 'https://comfy.org/download/windows/nsis/x64'],
-      [
-        'Windows ARM64 (NVIDIA GPU)',
-        'https://comfy.org/download/windows/nsis/arm64'
-      ],
+      ['Windows ARM64', 'https://comfy.org/download/windows/nsis/arm64'],
       ['macOS (Apple Silicon)', 'https://download.comfy.org/mac/dmg/arm64']
     ])
   })

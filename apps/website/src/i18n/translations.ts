@@ -1745,8 +1745,8 @@ Enterprise`
     'zh-CN': 'Windows x64'
   },
   'download.hero.installers.windowsArm64': {
-    en: 'Windows ARM64 (NVIDIA GPU)',
-    'zh-CN': 'Windows ARM64（NVIDIA GPU）'
+    en: 'Windows ARM64',
+    'zh-CN': 'Windows ARM64'
   },
   'download.hero.installers.macArm64': {
     en: 'macOS (Apple Silicon)',
