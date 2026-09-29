@@ -1737,8 +1737,8 @@ Enterprise`
     'zh-CN': '从 GITHUB 安装'
   },
   'download.hero.installers.label': {
-    en: 'All installers:',
-    'zh-CN': '全部安装包：'
+    en: 'All installers',
+    'zh-CN': '全部安装包'
   },
   'download.hero.installers.windowsX64': {
     en: 'Windows x64',
@@ -1751,6 +1751,14 @@ Enterprise`
   'download.hero.installers.macArm64': {
     en: 'macOS (Apple Silicon)',
     'zh-CN': 'macOS（Apple 芯片）'
+  },
+  'download.hero.installers.linuxX64': {
+    en: 'Linux x64 (AppImage)',
+    'zh-CN': 'Linux x64（AppImage）'
+  },
+  'download.hero.installers.linuxArm64': {
+    en: 'Linux ARM64 (AppImage)',
+    'zh-CN': 'Linux ARM64（AppImage）'
   },
 
   // Download – MobileDownloadEmailForm

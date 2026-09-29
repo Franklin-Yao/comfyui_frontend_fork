@@ -9,7 +9,7 @@ import { t } from '../../../i18n/translations'
 import BrandButton from '../../common/BrandButton.vue'
 import ProductHeroBadge from '../../common/ProductHeroBadge.vue'
 import DownloadLocalButton from './DownloadLocalButton.vue'
-import InstallerLinks from './InstallerLinks.vue'
+import InstallerMenu from './InstallerMenu.vue'
 import MobileDownloadEmailForm from './MobileDownloadEmailForm.vue'
 
 const { locale = 'en' } = defineProps<{ locale?: Locale }>()
@@ -317,7 +317,7 @@ onUnmounted(() => {
           </span>
         </BrandButton>
       </div>
-      <InstallerLinks :locale />
+      <InstallerMenu :locale />
     </div>
   </section>
 </template>

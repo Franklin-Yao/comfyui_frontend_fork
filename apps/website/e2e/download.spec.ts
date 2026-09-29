@@ -151,13 +151,17 @@ test.describe('Download page @smoke', () => {
     }) => {
       await page.goto('/download')
 
-      const installers = heroLocator(page)
-        .getByRole('list', { name: 'All installers:' })
-        .getByRole('link')
+      await heroLocator(page)
+        .getByRole('button', { name: 'All installers' })
+        .click()
+
+      const installers = page.getByRole('menu').getByRole('menuitem')
       await expect(installers).toHaveText([
         'Windows x64',
         'Windows ARM64',
-        'macOS (Apple Silicon)'
+        'macOS (Apple Silicon)',
+        'Linux x64 (AppImage)',
+        'Linux ARM64 (AppImage)'
       ])
       for (const installer of await installers.all()) {
         await expect(installer).toHaveAttribute('data-astro-prefetch', 'false')
@@ -236,7 +240,7 @@ test.describe('Download page @smoke', () => {
         hero.getByRole('link', { name: /DOWNLOAD DESKTOP/i })
       ).toBeHidden()
       await expect(
-        hero.getByRole('list', { name: 'All installers:' })
+        hero.getByRole('button', { name: 'All installers' })
       ).toBeHidden()
       await expect(
         hero.getByRole('link', { name: /INSTALL FROM GITHUB/i })

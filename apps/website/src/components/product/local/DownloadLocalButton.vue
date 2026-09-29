@@ -4,10 +4,7 @@ import { computed } from 'vue'
 import type { HTMLAttributes } from 'vue'
 
 import type { Platform } from '../../../composables/useDownloadUrl'
-import {
-  downloadUrls,
-  useDownloadUrl
-} from '../../../composables/useDownloadUrl'
+import { installers, useDownloadUrl } from '../../../composables/useDownloadUrl'
 import { t } from '../../../i18n/translations'
 import { captureDownloadClick } from '../../../scripts/posthog'
 import BrandButton from '../../common/BrandButton.vue'
@@ -48,13 +45,13 @@ const buttons = computed<ButtonSpec[]>(() => {
     return [
       {
         key: 'windows',
-        href: downloadUrls.windows,
+        href: installers.windows.url,
         icon: ICONS.windows,
         ariaLabel: `${label.value} — Windows`
       },
       {
         key: 'mac',
-        href: downloadUrls.macArm,
+        href: installers.macArm.url,
         icon: ICONS.mac,
         ariaLabel: `${label.value} — macOS`
       }
