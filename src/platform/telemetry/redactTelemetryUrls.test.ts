@@ -55,6 +55,22 @@ describe('redactTelemetryUrls', () => {
       )
     ).toBe('https://a/b,https://c/d; at f (https://host/a.js:12:9)')
   })
+
+  it('splits URL starts glued by brackets or proxy-like paths', () => {
+    expect(
+      redactTelemetryUrls(
+        '[https://user:one@a.test/x?token=1][https://user:two@b.test/y?token=2] proxy/https://user:three@c.test/z?token=3'
+      )
+    ).toBe('[https://a.test/x][https://b.test/y] proxy/https://c.test/z')
+  })
+
+  it('redacts query data from relative path references', () => {
+    expect(
+      redactTelemetryUrls(
+        'request api/view?token=SECRET and assets/a.glb#private'
+      )
+    ).toBe('request api/view and assets/a.glb')
+  })
 })
 
 describe('redactTelemetryValues', () => {
