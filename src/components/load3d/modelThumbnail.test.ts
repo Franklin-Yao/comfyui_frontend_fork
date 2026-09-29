@@ -220,9 +220,11 @@ describe('generateModelThumbnail', () => {
 
     releaseFirst()
     await firstRun
+    expect(releaseSharedRenderer).not.toHaveBeenCalled()
     await secondRun
 
     expect(createLoad3d).toHaveBeenCalledTimes(2)
+    expect(releaseSharedRenderer).toHaveBeenCalledOnce()
   })
 
   it('times out a stuck load, disposes it, and advances the queue', async () => {
