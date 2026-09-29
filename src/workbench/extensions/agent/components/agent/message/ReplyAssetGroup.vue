@@ -149,7 +149,12 @@ function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
       if (result.status === 'rendered') {
         thumbnailState.value[url] = { phase: 'ready', src: result.dataUrl }
       } else if (result.status === 'failed' || result.status === 'busy') {
-        scheduleThumbnailRetry(url, filename, attempts)
+        scheduleThumbnailRetry(
+          url,
+          filename,
+          attempts,
+          result.status !== 'busy'
+        )
       } else {
         thumbnailState.value[url] = { phase: 'gaveUp' }
       }
@@ -168,13 +173,14 @@ function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
 function scheduleThumbnailRetry(
   url: string,
   filename: string,
-  attempts: number
+  attempts: number,
+  countAttempt = true
 ): void {
-  if (attempts >= MAX_THUMBNAIL_RETRIES) {
+  if (countAttempt && attempts >= MAX_THUMBNAIL_RETRIES) {
     thumbnailState.value[url] = { phase: 'gaveUp' }
     return
   }
-  const nextAttempts = attempts + 1
+  const nextAttempts = countAttempt ? attempts + 1 : attempts
   const timeout = setTimeout(() => {
     if (!mounted) return
     loadModelThumbnail(url, filename, nextAttempts)

@@ -211,6 +211,12 @@ export class SceneModelManager implements ModelManagerInterface {
     this.ownsAppliedTexture = false
   }
 
+  private appliedTexturesToPreserve(): ReadonlySet<THREE.Texture> {
+    return this.ownsAppliedTexture || !this.appliedTexture
+      ? new Set()
+      : new Set([this.appliedTexture])
+  }
+
   private removeAllMainModelsFromScene(): void {
     const oldMainModels: THREE.Object3D[] = []
     this.scene.traverse((obj) => {
@@ -218,7 +224,11 @@ export class SceneModelManager implements ModelManagerInterface {
     })
     oldMainModels.forEach((oldModel) => {
       this.restoreOriginalMaterials(oldModel)
-      disposeObject3D(oldModel, this.preservedMaterials)
+      disposeObject3D(
+        oldModel,
+        this.preservedMaterials,
+        this.appliedTexturesToPreserve()
+      )
       this.disposeModelViaAdapter(oldModel)
       this.scene.remove(oldModel)
     })
@@ -373,9 +383,7 @@ export class SceneModelManager implements ModelManagerInterface {
       disposeObject3D(
         obj,
         this.preservedMaterials,
-        this.ownsAppliedTexture || !this.appliedTexture
-          ? new Set()
-          : new Set([this.appliedTexture])
+        this.appliedTexturesToPreserve()
       )
       this.disposeModelViaAdapter(obj)
     })

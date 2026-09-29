@@ -97,6 +97,7 @@ async function renderThumbnailWithTimeout(
   assetName: string,
   callerSignal?: AbortSignal
 ): Promise<ModelThumbnailResult> {
+  if (callerSignal?.aborted) return { status: 'cancelled' }
   const abortController = new AbortController()
   const cancelError = new Error('Model thumbnail generation cancelled')
   let onCallerAbort: (() => void) | undefined

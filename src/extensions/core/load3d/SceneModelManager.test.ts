@@ -177,6 +177,26 @@ describe('SceneModelManager', () => {
       expect(textureDispose).not.toHaveBeenCalled()
       expect(manager.appliedTexture).toBeNull()
     })
+
+    it('preserves a borrowed texture while replacing the rendered model', () => {
+      const { manager, scene } = createManager()
+      const texture = new THREE.Texture()
+      const textureDispose = vi.spyOn(texture, 'dispose')
+      const material = new THREE.MeshStandardMaterial({ map: texture })
+      const model = new THREE.Group()
+      model.name = 'MainModel'
+      model.add(new THREE.Mesh(new THREE.BoxGeometry(), material))
+      scene.add(model)
+      manager.borrowAppliedTexture(texture)
+
+      const replacing = manager as unknown as {
+        removeAllMainModelsFromScene(): void
+      }
+      replacing.removeAllMainModelsFromScene()
+
+      expect(textureDispose).not.toHaveBeenCalled()
+      expect(scene.getObjectByName('MainModel')).toBeUndefined()
+    })
   })
 
   describe('createSTLMaterial', () => {

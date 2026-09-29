@@ -75,6 +75,22 @@ describe('generateModelThumbnail', () => {
     expect(persistThumbnail).not.toHaveBeenCalled()
   })
 
+  it('observes an abort that lands immediately before timeout wiring', async () => {
+    const controller = new AbortController()
+    vi.mocked(acquireSharedRenderer).mockImplementationOnce(() => {
+      controller.abort()
+      return {
+        renderer: fromPartial<THREE.WebGLRenderer>({}),
+        release: releaseSharedRenderer
+      }
+    })
+
+    await expect(
+      generateModelThumbnail('/cancel.glb', 'cancel.glb', controller.signal)
+    ).resolves.toEqual({ status: 'cancelled' })
+    expect(createLoad3d).not.toHaveBeenCalled()
+  })
+
   it('releases the queue the moment a running render is aborted', async () => {
     vi.useFakeTimers()
     try {

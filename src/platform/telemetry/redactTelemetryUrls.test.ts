@@ -26,6 +26,11 @@ describe('redactTelemetryUrls', () => {
       kind: 'root-relative query',
       input: '/api/view?sig=SECRET&x=1?y=2',
       expected: '/api/view'
+    },
+    {
+      kind: 'bracketed query keys',
+      input: 'https://h/api/view?filter[id]=1&token=SECRET',
+      expected: 'https://h/api/view'
     }
   ])('$kind', ({ input, expected }) => {
     it('redacts URL metadata', () => {
@@ -56,6 +61,20 @@ describe('redactTelemetryValues', () => {
         'Error loading model:',
         { message: 'failed https://example.com/a.glb' }
       ]
+    })
+  })
+
+  it('preserves repeated DAG values while still marking ancestor cycles', () => {
+    const shared = { url: 'https://example.com/a?token=secret' }
+    const cyclic: { self?: unknown } = {}
+    cyclic.self = cyclic
+
+    expect(
+      redactTelemetryValues({ first: shared, second: shared, cyclic })
+    ).toEqual({
+      first: { url: 'https://example.com/a' },
+      second: { url: 'https://example.com/a' },
+      cyclic: { self: '[Circular]' }
     })
   })
 })

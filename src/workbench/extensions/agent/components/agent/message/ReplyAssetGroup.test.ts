@@ -357,6 +357,35 @@ describe('ReplyAssetGroup', () => {
     }
   })
 
+  it('does not spend the failure retry budget on queue backpressure', async () => {
+    isAssetPreviewSupported.mockReturnValue(true)
+    generateModelThumbnail
+      .mockResolvedValueOnce({ status: 'busy' })
+      .mockResolvedValueOnce({ status: 'busy' })
+      .mockResolvedValueOnce({ status: 'busy' })
+      .mockResolvedValueOnce({
+        status: 'rendered',
+        dataUrl: 'data:image/png;base64,after-backpressure'
+      })
+    vi.useFakeTimers()
+    try {
+      renderGroup([model])
+      await vi.waitFor(() =>
+        expect(generateModelThumbnail).toHaveBeenCalledOnce()
+      )
+
+      await vi.advanceTimersByTimeAsync(6_000)
+
+      expect(generateModelThumbnail).toHaveBeenCalledTimes(4)
+      expect(screen.getByRole('img', { name: 'mesh.glb' })).toHaveAttribute(
+        'src',
+        'data:image/png;base64,after-backpressure'
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('bounds retries to exactly the initial attempt plus MAX_THUMBNAIL_RETRIES', async () => {
     isAssetPreviewSupported.mockReturnValue(true)
     vi.useFakeTimers()
