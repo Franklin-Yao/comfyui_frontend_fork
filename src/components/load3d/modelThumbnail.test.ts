@@ -227,6 +227,46 @@ describe('generateModelThumbnail', () => {
     expect(releaseSharedRenderer).toHaveBeenCalledOnce()
   })
 
+  it('rejects a 33rd queued render and restores capacity after cancellation', async () => {
+    const controllers = Array.from({ length: 32 }, () => new AbortController())
+    const stalled = mockInstance({
+      loadModel: vi.fn<Load3d['loadModel']>(() => new Promise(() => {}))
+    })
+    createLoad3d.mockReturnValue(stalled)
+
+    const accepted = controllers.map((controller, index) =>
+      generateModelThumbnail(
+        `/queued-${index}.glb`,
+        `queued-${index}.glb`,
+        controller.signal
+      )
+    )
+    await vi.waitFor(() => expect(stalled.loadModel).toHaveBeenCalledOnce())
+
+    await expect(
+      generateModelThumbnail('/busy.glb', 'busy.glb')
+    ).resolves.toEqual({ status: 'busy' })
+
+    controllers[0].abort()
+    await expect(accepted[0]).resolves.toEqual({ status: 'cancelled' })
+
+    const restoredController = new AbortController()
+    const restored = generateModelThumbnail(
+      '/restored.glb',
+      'restored.glb',
+      restoredController.signal
+    )
+    restoredController.abort()
+    controllers.slice(1).forEach((controller) => controller.abort())
+
+    await expect(Promise.all(accepted.slice(1))).resolves.toEqual(
+      Array.from({ length: 31 }, () => ({ status: 'cancelled' }))
+    )
+    await expect(restored).resolves.toEqual({ status: 'cancelled' })
+    expect(createLoad3d).toHaveBeenCalledOnce()
+    expect(releaseSharedRenderer).toHaveBeenCalledOnce()
+  })
+
   it('times out a stuck load, disposes it, and advances the queue', async () => {
     vi.useFakeTimers()
     try {
