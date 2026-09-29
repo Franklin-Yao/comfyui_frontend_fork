@@ -72,6 +72,7 @@ export function generateModelThumbnail(
     try {
       const { acquireSharedRenderer } =
         await import('@/renderer/three/sharedWebGLRenderer')
+      if (callerSignal?.aborted) return { status: 'cancelled' }
       rendererKeepAlive ??= acquireSharedRenderer()
     } catch (error) {
       reportError(redactedCopy(error), {
