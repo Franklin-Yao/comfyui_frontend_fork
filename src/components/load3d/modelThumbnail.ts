@@ -12,6 +12,7 @@ let queue: Promise<unknown> = Promise.resolve()
 const MODEL_LOAD_TIMEOUT_MS = 15_000
 const MAX_QUEUED_RENDERS = 32
 const RENDER_CANCELLED = new Error('Model thumbnail render cancelled')
+const RENDER_FAILED = new Error('Model thumbnail load did not complete')
 let queuedRenderCount = 0
 let rendererKeepAlive: SharedRendererHandle | null = null
 
@@ -202,9 +203,7 @@ async function renderThumbnailInner(
       silent: true
     })
     if (outcome === 'cancelled') throw RENDER_CANCELLED
-    if (outcome !== 'loaded') {
-      throw new Error(`Model thumbnail load ended with ${outcome}`)
-    }
+    if (outcome !== 'loaded') throw RENDER_FAILED
     signal.throwIfAborted()
     const dataUrl = await load3d.captureThumbnail(256, 256)
     signal.throwIfAborted()
