@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import type * as THREE from 'three'
 
 import { t } from '@/i18n'
 import { useToastStore } from '@/platform/updates/common/toastStore'
