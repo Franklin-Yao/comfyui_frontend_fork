@@ -4,7 +4,7 @@ export function redactTelemetryUrls(text: string): string {
 }
 
 const URL_TOKEN_PATTERN =
-  /(?:https?:)?\/\/(?:(?!(?:[\[\](){},;]*)(?:https?:)?\/\/)[^\s"'<>])+|\/(?!\/|https?:\/\/)[A-Za-z0-9._~%-](?:(?!(?:[\[\](){},;]*)(?:https?:)?\/\/)[^\s"'<>])*|\b[A-Za-z0-9._~%-]+(?:\/[A-Za-z0-9._~%-]+)+[?#][^\s"'<>]*/g
+  /(?:https?:)?\/\/(?:(?!(?:(?:\[|\]|[(){},;])*)(?:https?:)?\/\/)[^\s"'<>])+|\/(?!\/|https?:\/\/)[A-Za-z0-9._~%-](?:(?!(?:(?:\[|\]|[(){},;])*)(?:https?:)?\/\/)[^\s"'<>])*|\b[A-Za-z0-9._~%-]+(?:\/[A-Za-z0-9._~%-]+)+[?#][^\s"'<>]*/g
 
 function redactUrlToken(token: string): string {
   const { core, trailing } = peelTrailingPunctuation(token)
