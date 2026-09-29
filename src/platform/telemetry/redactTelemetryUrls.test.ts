@@ -6,7 +6,7 @@ import {
 } from './redactTelemetryUrls'
 
 describe('redactTelemetryUrls', () => {
-  describe.each([
+  describe.for([
     {
       kind: 'absolute query',
       input: 'https://example.com/model.glb?email=a@b.com&token=private',
