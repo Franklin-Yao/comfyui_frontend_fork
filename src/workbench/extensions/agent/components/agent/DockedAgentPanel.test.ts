@@ -110,6 +110,7 @@ describe('DockedAgentPanel', () => {
 
     await vi.waitFor(() =>
       expect(reportError).toHaveBeenCalledWith(expect.any(Error), {
+        surface: 'agent',
         errorType: 'agent_run_mode_load_failure'
       })
     )

@@ -5,6 +5,7 @@ import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import { assetService } from '@/platform/assets/services/assetService'
 import type * as DistributionTypes from '@/platform/distribution/types'
 import { remoteConfig } from '@/platform/remoteConfig/remoteConfig'
+import { reportError } from '@/platform/telemetry/reportError'
 import { api } from '@/scripts/api'
 import {
   ResourceState,
@@ -21,6 +22,9 @@ const mockDistribution = vi.hoisted(
 vi.mock(import('@/platform/distribution/types'), () => mockDistribution)
 
 vi.mock(import('@/platform/remoteConfig/remoteConfig'))
+vi.mock(import('@/platform/telemetry/reportError'), () => ({
+  reportError: vi.fn()
+}))
 
 const featureState = vi.hoisted(() => ({
   serverFeatures: {} as Record<string, unknown>
@@ -635,23 +639,20 @@ describe('useModelStore', () => {
       expect(api.getModelFolders).not.toHaveBeenCalled()
     })
 
-    it('logs instead of rejecting when the post-scan reload fails', async () => {
-      const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    it('reports instead of rejecting when the post-scan reload fails', async () => {
+      const reloadError = new Error('transient network failure')
       enableMocks(true)
       store = useModelStore()
       await store.loadModels()
-      vi.mocked(api.getModelFolders).mockRejectedValue(
-        new Error('transient network failure')
-      )
+      vi.mocked(api.getModelFolders).mockRejectedValue(reloadError)
 
       await getScanCallback()()
       await flushScanReload()
 
-      expect(error).toHaveBeenCalledWith(
-        expect.stringContaining('reload'),
-        expect.any(Error)
-      )
-      error.mockRestore()
+      expect(reportError).toHaveBeenCalledWith(reloadError, {
+        surface: 'assets',
+        errorType: 'model_library_capability_reload'
+      })
     })
   })
 

@@ -261,6 +261,7 @@ export function registerAgentPanelExtension(): void {
           })
           .catch((error: unknown) => {
             reportError(error, {
+              surface: 'agent',
               errorType: 'agent_consent_auto_offer_failure'
             })
           })
@@ -298,6 +299,7 @@ export function registerAgentPanelExtension(): void {
           })
           .catch((error: unknown) => {
             reportError(error, {
+              surface: 'agent',
               errorType: 'agent_consent_setting_load_failure'
             })
           })

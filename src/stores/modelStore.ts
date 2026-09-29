@@ -6,6 +6,7 @@ import { useFeatureFlags } from '@/composables/useFeatureFlags'
 import type { ModelFile } from '@/platform/assets/schemas/assetSchema'
 import { assetService } from '@/platform/assets/services/assetService'
 import { isCloud } from '@/platform/distribution/types'
+import { reportError } from '@/platform/telemetry/reportError'
 import { api } from '@/scripts/api'
 
 /** (Internal helper) finds a value in a metadata object from any of a list of keys. */
@@ -502,7 +503,10 @@ export const useModelStore = defineStore('models', () => {
     try {
       await reloadModels()
     } catch (error) {
-      console.error('Failed to reload the model library', error)
+      reportError(error, {
+        surface: 'assets',
+        errorType: 'model_library_capability_reload'
+      })
     }
   }, MODEL_RELOAD_DEBOUNCE_MS)
 

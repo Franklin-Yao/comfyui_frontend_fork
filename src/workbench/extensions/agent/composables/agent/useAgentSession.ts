@@ -773,7 +773,10 @@ export function useAgentSession(deps: AgentSessionDeps) {
         })
         return false
       }
-      reportError(error, { errorType: 'agent_ask_answer_failed' })
+      reportError(error, {
+        surface: 'agent',
+        errorType: 'agent_ask_answer_failed'
+      })
       pushError(error instanceof Error ? error.message : String(error))
       return false
     }

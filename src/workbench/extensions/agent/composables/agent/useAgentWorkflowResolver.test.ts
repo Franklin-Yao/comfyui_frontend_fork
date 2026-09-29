@@ -281,6 +281,7 @@ describe('Agent workflow resolution', () => {
       { id: 'known', name: 'Current' }
     ])
     expect(reportError).toHaveBeenCalledWith(error, {
+      surface: 'agent',
       errorType: 'agent_cloud_workflow_ids_refresh_failed'
     })
     listCloudWorkflows.mockResolvedValueOnce([

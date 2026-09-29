@@ -63,6 +63,7 @@ export function useAgentConsent() {
         if (settled) return
         saving = false
         reportError(error, {
+          surface: 'agent',
           errorType: 'agent_consent_setting_write_failure'
         })
         dialogStore.updateDialog({
@@ -159,6 +160,7 @@ export function useAgentConsent() {
       if (!(await dialogService.showSignInDialog())) return null
     } catch (error) {
       reportError(error, {
+        surface: 'agent',
         errorType: 'agent_consent_sign_in_failure'
       })
       toastStore.add({
@@ -177,6 +179,7 @@ export function useAgentConsent() {
       return decisionIdentity
     } catch (error) {
       reportError(error, {
+        surface: 'agent',
         errorType: 'agent_consent_setting_write_failure'
       })
       toastStore.add({
@@ -199,6 +202,7 @@ export function useAgentConsent() {
       await consentStore.load()
     } catch (error) {
       reportError(error, {
+        surface: 'agent',
         errorType: 'agent_consent_setting_load_failure'
       })
       toastStore.add({

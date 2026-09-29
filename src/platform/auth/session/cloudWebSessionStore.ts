@@ -135,6 +135,7 @@ export const useCloudWebSessionStore = defineStore('cloudWebSession', () => {
     const result = await session.signedIn(getProof).catch(() => null)
     if (result?.status === 'ok') return
     reportError(new Error('Web session creation failed'), {
+      surface: 'auth',
       errorType: 'session_cookie_creation_failure',
       level: 'warning'
     })
@@ -185,6 +186,7 @@ export const useCloudWebSessionStore = defineStore('cloudWebSession', () => {
     const result = await identity?.signOut()
     if (result === undefined || result.status === 'ok') return
     reportError(new Error('Session cookie deletion failed'), {
+      surface: 'auth',
       errorType: 'auth_session_cookie_delete_failed',
       level: 'error'
     })
