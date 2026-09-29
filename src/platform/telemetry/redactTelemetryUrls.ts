@@ -77,23 +77,39 @@ function peelTrailingPunctuation(token: string): {
 }
 
 function countExcessClosingBrackets(token: string, suffix: string): number {
-  let excessParens = 0
-  let excessBrackets = 0
-  for (const character of token) {
-    if (character === ')') excessParens++
-    else if (character === '(') excessParens--
-    else if (character === ']') excessBrackets++
-    else if (character === '[') excessBrackets--
+  const counts = {
+    parens: countCharacter(token, ')') - countCharacter(token, '('),
+    brackets: countCharacter(token, ']') - countCharacter(token, '[')
   }
   let count = 0
   for (let index = suffix.length - 1; index >= 0; index--) {
-    const bracket = suffix[index]
-    if (bracket === ')' && excessParens > 0) excessParens--
-    else if (bracket === ']' && excessBrackets > 0) excessBrackets--
-    else break
+    if (!consumeExcessClosingBracket(suffix[index], counts)) break
     count++
   }
   return count
+}
+
+function countCharacter(text: string, target: string): number {
+  let count = 0
+  for (const character of text) {
+    if (character === target) count++
+  }
+  return count
+}
+
+function consumeExcessClosingBracket(
+  bracket: string,
+  counts: { parens: number; brackets: number }
+): boolean {
+  if (bracket === ')' && counts.parens > 0) {
+    counts.parens--
+    return true
+  }
+  if (bracket === ']' && counts.brackets > 0) {
+    counts.brackets--
+    return true
+  }
+  return false
 }
 
 const REDACTION_SENTINEL = '[Redacted]'
@@ -128,23 +144,41 @@ function redactValue(
 ): unknown {
   if (typeof value === 'string') return redactTelemetryUrls(value)
   if (typeof value !== 'object' || value === null) return value
+  const guarded = guardedRedactionValue(value, context, depth)
+  if (guarded) return guarded.value
+  return redactClassifiedValue(classifyObject(value), value, context, depth)
+}
+
+function redactClassifiedValue(
+  classification: ObjectClassification,
+  value: object,
+  context: RedactionContext,
+  depth: number
+): unknown {
+  switch (classification.kind) {
+    case 'error':
+      return redactError(classification.value, context, depth)
+    case 'array':
+      return redactArray(classification.value, context, depth)
+    case 'plain':
+      return redactPlainObject(value, context, depth)
+    case 'unsafe':
+      return REDACTION_SENTINEL
+    case 'other':
+      return value
+  }
+}
+
+function guardedRedactionValue(
+  value: object,
+  context: RedactionContext,
+  depth: number
+): { value: unknown } | undefined {
   if (depth >= MAX_REDACTION_DEPTH || context.nodesRemaining-- <= 0) {
-    return REDACTION_SENTINEL
+    return { value: REDACTION_SENTINEL }
   }
-  if (context.ancestors.has(value)) return '[Circular]'
-  if (context.memo.has(value)) return context.memo.get(value)
-  const classification = classifyObject(value)
-  if (classification.kind === 'error') {
-    return redactError(classification.value, context, depth)
-  }
-  if (classification.kind === 'array') {
-    return redactArray(classification.value, context, depth)
-  }
-  if (classification.kind === 'plain') {
-    return redactPlainObject(value, context, depth)
-  }
-  if (classification.kind === 'unsafe') return REDACTION_SENTINEL
-  return value
+  if (context.ancestors.has(value)) return { value: '[Circular]' }
+  if (context.memo.has(value)) return { value: context.memo.get(value) }
 }
 
 function redactArray(
