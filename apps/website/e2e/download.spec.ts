@@ -145,6 +145,24 @@ test.describe('Download page @smoke', () => {
         heroLocator(page).getByRole('link', { name: /DOWNLOAD DESKTOP/i })
       ).toHaveAttribute('href', 'https://comfy.org/download/windows/nsis/arm64')
     })
+
+    test('HeroSection lets the visitor pick any installer without prefetching it', async ({
+      page
+    }) => {
+      await page.goto('/download')
+
+      const installers = heroLocator(page)
+        .getByRole('list', { name: 'All installers:' })
+        .getByRole('link')
+      await expect(installers).toHaveText([
+        'Windows x64',
+        'Windows ARM64 (NVIDIA GPU)',
+        'macOS (Apple Silicon)'
+      ])
+      for (const installer of await installers.all()) {
+        await expect(installer).toHaveAttribute('data-astro-prefetch', 'false')
+      }
+    })
   })
 
   test.describe('Linux desktop', () => {
@@ -181,17 +199,23 @@ test.describe('Download page @smoke', () => {
 
       const hero = heroLocator(page)
 
-      const windowsBtn = hero.locator(
-        'a[href="https://comfy.org/download/windows/nsis/x64"]'
-      )
+      const windowsBtn = hero.getByRole('link', {
+        name: /DOWNLOAD DESKTOP — Windows/i
+      })
       await expect(windowsBtn).toBeVisible()
-      await expect(windowsBtn).toHaveText(/DOWNLOAD DESKTOP/i)
-
-      const macBtn = hero.locator(
-        'a[href="https://download.comfy.org/mac/dmg/arm64"]'
+      await expect(windowsBtn).toHaveAttribute(
+        'href',
+        'https://comfy.org/download/windows/nsis/x64'
       )
+
+      const macBtn = hero.getByRole('link', {
+        name: /DOWNLOAD DESKTOP — macOS/i
+      })
       await expect(macBtn).toBeVisible()
-      await expect(macBtn).toHaveText(/DOWNLOAD DESKTOP/i)
+      await expect(macBtn).toHaveAttribute(
+        'href',
+        'https://download.comfy.org/mac/dmg/arm64'
+      )
 
       await expect(
         hero.getByRole('link', { name: /DOWNLOAD DESKTOP/i })
@@ -210,6 +234,9 @@ test.describe('Download page @smoke', () => {
 
       await expect(
         hero.getByRole('link', { name: /DOWNLOAD DESKTOP/i })
+      ).toBeHidden()
+      await expect(
+        hero.getByRole('list', { name: 'All installers:' })
       ).toBeHidden()
       await expect(
         hero.getByRole('link', { name: /INSTALL FROM GITHUB/i })
