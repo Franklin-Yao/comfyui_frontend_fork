@@ -1,6 +1,6 @@
 import type { App } from 'vue'
 import { browserApiErrorsIntegration, init as sentryInit } from '@sentry/vue'
-import type { ErrorEvent, EventHint, Exception } from '@sentry/vue'
+import type { Contexts, ErrorEvent, EventHint, Exception } from '@sentry/vue'
 
 import { sentryThirdPartyErrorFilter } from './thirdPartyErrorNoise'
 import {
@@ -14,13 +14,22 @@ function redactSentryEvent(event: ErrorEvent, hint: EventHint) {
     filtered.message = redactTelemetryUrls(filtered.message)
   }
   filtered.extra = redactTelemetryValues(filtered.extra)
-  filtered.contexts = redactTelemetryValues(filtered.contexts)
+  filtered.contexts = redactSentryContexts(filtered.contexts)
   if (filtered.request?.url) {
     filtered.request.url = redactTelemetryUrls(filtered.request.url)
   }
   for (const exception of filtered.exception?.values ?? [])
     redactSentryException(exception)
   return filtered
+}
+
+function redactSentryContexts(contexts: Contexts | undefined): Contexts {
+  return Object.fromEntries(
+    Object.entries(contexts ?? {}).map(([key, context]) => [
+      key,
+      context ? redactTelemetryValues(context) : context
+    ])
+  )
 }
 
 function redactSentryException(exception: Exception): void {
@@ -63,7 +72,11 @@ export function initSentry({
       if (span.description) {
         span.description = redactTelemetryUrls(span.description)
       }
-      span.data = redactTelemetryValues(span.data) ?? {}
+      for (const [key, value] of Object.entries(span.data)) {
+        if (typeof value === 'string') {
+          span.data[key] = redactTelemetryUrls(value)
+        }
+      }
       return span
     },
     // Only set these for non-cloud builds

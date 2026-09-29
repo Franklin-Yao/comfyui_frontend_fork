@@ -1,5 +1,5 @@
 import { fromPartial } from '@total-typescript/shoehorn'
-import type { RumErrorEvent } from '@datadog/browser-rum'
+import type { RumErrorEvent, RumResourceEvent } from '@datadog/browser-rum'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setAssertReporter } from '@/base/assert'
@@ -116,6 +116,18 @@ describe('rumBeforeSend', () => {
     expect(event.context?.model).toEqual({
       source: 'https://example.com/model.glb'
     })
+  })
+
+  it('redacts URL secrets from resource events', () => {
+    const event = fromPartial<RumResourceEvent>({
+      type: 'resource',
+      resource: {
+        url: 'https://user:secret@example.com/model.glb?token=private'
+      }
+    })
+
+    expect(rumBeforeSend(event, fromPartial({}))).toBe(true)
+    expect(event.resource.url).toBe('https://example.com/model.glb')
   })
 
   it('keeps the console copy while no reporter exists to replace it', () => {

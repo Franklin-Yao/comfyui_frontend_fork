@@ -38,6 +38,11 @@ describe('redactTelemetryUrls', () => {
       expected: '/api/view'
     },
     {
+      kind: 'single-segment relative query',
+      input: 'model.glb?token=SECRET',
+      expected: 'model.glb'
+    },
+    {
       kind: 'bracketed query keys',
       input: 'https://h/api/view?filter[id]=1&token=SECRET',
       expected: 'https://h/api/view'
@@ -56,12 +61,27 @@ describe('redactTelemetryUrls', () => {
     ).toBe('https://a/b,https://c/d; at f (https://host/a.js:12:9)')
   })
 
-  it('splits URL starts glued by brackets or proxy-like paths', () => {
+  describe.for([
+    { boundary: '][', expected: '][', kind: 'square brackets' },
+    { boundary: ')(', expected: ')(', kind: 'parentheses' },
+    { boundary: '}{', expected: '}{', kind: 'braces' },
+    { boundary: ',;', expected: ',;', kind: 'separators' }
+  ])('$kind', ({ boundary, expected }) => {
+    it('redacts URL starts glued by punctuation', () => {
+      expect(
+        redactTelemetryUrls(
+          `https://user:one@a.test/x?token=1${boundary}https://user:two@b.test/y?token=2`
+        )
+      ).toBe(`https://a.test/x${expected}https://b.test/y`)
+    })
+  })
+
+  it('redacts proxy-like paths without changing ordinary question text', () => {
     expect(
       redactTelemetryUrls(
-        '[https://user:one@a.test/x?token=1][https://user:two@b.test/y?token=2] proxy/https://user:three@c.test/z?token=3'
+        'Can this work? proxy/https://user:secret@c.test/z?token=3'
       )
-    ).toBe('[https://a.test/x][https://b.test/y] proxy/https://c.test/z')
+    ).toBe('Can this work? proxy/https://c.test/z')
   })
 
   it('redacts query data from relative path references', () => {
@@ -80,6 +100,15 @@ describe('redactTelemetryUrls', () => {
       )
     ).toBe(`https://example.com/model.glb${trailing}`)
   })
+
+  it('handles long glued-URL punctuation runs within a bounded time', () => {
+    const boundary = '['.repeat(20_000)
+    expect(
+      redactTelemetryUrls(
+        `https://a.test/x?token=1${boundary}https://user:secret@b.test/y?token=2`
+      )
+    ).toBe(`https://a.test/x${boundary}https://b.test/y`)
+  }, 500)
 })
 
 describe('redactTelemetryValues', () => {
@@ -132,6 +161,17 @@ describe('redactTelemetryValues', () => {
     const error = new Error(
       'failed https://user:secret@example.com/a.glb?token=x'
     )
+    error.name = 'AssetLoadError'
+    Object.defineProperty(error, 'stack', {
+      configurable: true,
+      value: 'at load (https://user:secret@example.com/load.js?token=x:1:2)',
+      writable: true
+    })
+    const cause = new Error(
+      'cause https://user:secret@example.com/cause.glb?token=x'
+    )
+    cause.cause = error
+    error.cause = cause
     const date = new Date()
     const getter = vi.fn(() => 'https://example.com/a?token=x')
     const value = Object.defineProperty({}, 'unsafe', {
@@ -143,8 +183,21 @@ describe('redactTelemetryValues', () => {
     expect(redacted).toBeDefined()
     if (!redacted) throw new Error('Expected redacted telemetry values')
 
-    expect(redacted.error).toBeInstanceOf(Error)
+    if (!(redacted.error instanceof Error)) {
+      throw new Error('Expected redacted Error')
+    }
     expect(redacted.error.message).toBe('failed https://example.com/a.glb')
+    expect(redacted.error.name).toBe('AssetLoadError')
+    expect(redacted.error.stack).toBe(
+      'at load (https://example.com/load.js:1:2)'
+    )
+    if (!(redacted.error.cause instanceof Error)) {
+      throw new Error('Expected redacted Error cause')
+    }
+    expect(redacted.error.cause.message).toBe(
+      'cause https://example.com/cause.glb'
+    )
+    expect(redacted.error.cause.cause).toBe('[Circular]')
     expect(redacted.date).toBe(date)
     expect(redacted.value).toEqual({})
     expect(getter).not.toHaveBeenCalled()
@@ -154,6 +207,44 @@ describe('redactTelemetryValues', () => {
     const { proxy, revoke } = Proxy.revocable({}, {})
     revoke()
 
-    expect(redactTelemetryValues({ proxy })?.proxy).toBe(proxy)
+    expect(redactTelemetryValues({ proxy })?.proxy).toBe('[Redacted]')
+  })
+
+  it('fails closed for values beyond the traversal budgets', () => {
+    const root: Record<string, unknown> = {}
+    let current = root
+    for (let depth = 0; depth < 100_000; depth++) {
+      const next: Record<string, unknown> = {}
+      current.next = next
+      current = next
+    }
+    current.url = 'https://user:secret@example.com/model.glb?token=private'
+
+    let redacted: unknown = redactTelemetryValues(root)
+    for (let depth = 0; depth < 32; depth++) {
+      expect(redacted).toBeTypeOf('object')
+      redacted = (redacted as Record<string, unknown>).next
+    }
+    expect(redacted).toBe('[Redacted]')
+  })
+
+  it('fails closed without invoking hostile array or Error accessors', () => {
+    const array = Proxy.revocable<unknown[]>([], {})
+    array.revoke()
+    const message = vi.fn(() => 'secret')
+    const error = Object.defineProperty(new Error(), 'message', {
+      enumerable: true,
+      get: message
+    })
+
+    const redacted = redactTelemetryValues({ array: array.proxy, error })
+    if (!redacted) throw new Error('Expected redacted telemetry values')
+
+    expect(redacted.array).toBe('[Redacted]')
+    if (!(redacted.error instanceof Error)) {
+      throw new Error('Expected redacted Error')
+    }
+    expect(redacted.error.message).toBe('[Redacted]')
+    expect(message).not.toHaveBeenCalled()
   })
 })

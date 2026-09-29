@@ -4,9 +4,24 @@ export function redactTelemetryUrls(text: string): string {
 }
 
 const URL_TOKEN_PATTERN =
-  /(?:https?:)?\/\/(?:(?!(?:(?:\[|\]|[(){},;])*)(?:https?:)?\/\/)[^\s"'<>])+|\/(?!\/|https?:\/\/)[A-Za-z0-9._~%-](?:(?!(?:(?:\[|\]|[(){},;])*)(?:https?:)?\/\/)[^\s"'<>])*|\b[A-Za-z0-9._~%-]+(?:\/[A-Za-z0-9._~%-]+)+[?#][^\s"'<>]*/g
+  /(?:https?:)?\/\/[^\s"'<>]+|\/(?!\/|https?:\/\/)[A-Za-z0-9._~%-][^\s"'<>]*|\b[A-Za-z0-9_~%-]+(?:\.[A-Za-z0-9._~%-]+|\/[A-Za-z0-9._~%-]+)+[?#][^\s"'<>]*/g
 
 function redactUrlToken(token: string): string {
+  let redacted = ''
+  let tokenStart = 0
+  for (;;) {
+    const boundary = findGluedUrlBoundary(token, tokenStart)
+    if (!boundary) {
+      return redacted + redactSingleUrlToken(token.slice(tokenStart))
+    }
+    const { nextUrl, separator } = boundary
+    redacted += redactSingleUrlToken(token.slice(tokenStart, separator))
+    redacted += token.slice(separator, nextUrl)
+    tokenStart = nextUrl
+  }
+}
+
+function redactSingleUrlToken(token: string): string {
   const { core, trailing } = peelTrailingPunctuation(token)
   const stackSuffix = core.match(/:\d+:\d+$/)?.[0] ?? ''
   const url = stackSuffix ? core.slice(0, -stackSuffix.length) : core
@@ -17,6 +32,27 @@ function redactUrlToken(token: string): string {
   const [, prefix, authority, path] = absolute
   const userInfoEnd = authority.lastIndexOf('@')
   return `${prefix}${authority.slice(userInfoEnd + 1)}${path}${stackSuffix}${trailing}`
+}
+
+function findGluedUrlBoundary(
+  token: string,
+  tokenStart: number
+): { separator: number; nextUrl: number } | undefined {
+  const urlStartPattern = /(?:https?:)?\/\//g
+  urlStartPattern.lastIndex = tokenStart + 1
+  for (const match of token.matchAll(urlStartPattern)) {
+    const nextUrl = match.index
+    let separator = nextUrl
+    while (separator > 0 && /[[\](){};,]/.test(token[separator - 1])) {
+      separator--
+    }
+    if (separator < nextUrl || token[nextUrl - 1] === '/') {
+      return {
+        separator: token[nextUrl - 1] === '/' ? nextUrl - 1 : separator,
+        nextUrl
+      }
+    }
+  }
 }
 
 function peelTrailingPunctuation(token: string): {
@@ -41,8 +77,14 @@ function peelTrailingPunctuation(token: string): {
 }
 
 function countExcessClosingBrackets(token: string, suffix: string): number {
-  let excessParens = countCharacter(token, ')') - countCharacter(token, '(')
-  let excessBrackets = countCharacter(token, ']') - countCharacter(token, '[')
+  let excessParens = 0
+  let excessBrackets = 0
+  for (const character of token) {
+    if (character === ')') excessParens++
+    else if (character === '(') excessParens--
+    else if (character === ']') excessBrackets++
+    else if (character === '[') excessBrackets--
+  }
   let count = 0
   for (let index = suffix.length - 1; index >= 0; index--) {
     const bracket = suffix[index]
@@ -54,62 +96,70 @@ function countExcessClosingBrackets(token: string, suffix: string): number {
   return count
 }
 
-function countCharacter(value: string, character: string): number {
-  let count = 0
-  for (const current of value) if (current === character) count++
-  return count
-}
+const REDACTION_SENTINEL = '[Redacted]'
+const MAX_REDACTION_DEPTH = 32
+const MAX_REDACTION_NODES = 1_000
 
-export function redactTelemetryValues<T extends Record<string, unknown>>(
-  values: T | undefined
-): T | undefined {
+export function redactTelemetryValues(
+  values: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
   if (!values) return values
-  return redactValue(values, {
-    ancestors: new WeakSet<object>(),
-    memo: new WeakMap<object, unknown>()
-  }) as T
+  return redactPlainObject(
+    values,
+    {
+      ancestors: new WeakSet<object>(),
+      memo: new WeakMap<object, unknown>(),
+      nodesRemaining: MAX_REDACTION_NODES
+    },
+    0
+  )
 }
 
 interface RedactionContext {
   ancestors: WeakSet<object>
   memo: WeakMap<object, unknown>
+  nodesRemaining: number
 }
 
-function redactValue(value: unknown, context: RedactionContext): unknown {
+function redactValue(
+  value: unknown,
+  context: RedactionContext,
+  depth = 0
+): unknown {
   if (typeof value === 'string') return redactTelemetryUrls(value)
   if (typeof value !== 'object' || value === null) return value
+  if (depth >= MAX_REDACTION_DEPTH || context.nodesRemaining-- <= 0) {
+    return REDACTION_SENTINEL
+  }
   if (context.ancestors.has(value)) return '[Circular]'
   if (context.memo.has(value)) return context.memo.get(value)
-  if (isError(value)) return redactError(value, context)
-  if (isArray(value)) return redactArray(value, context)
-  if (!isPlainObject(value)) return value
-  return redactPlainObject(value, context)
+  const classification = classifyObject(value)
+  if (classification.kind === 'error') {
+    return redactError(classification.value, context, depth)
+  }
+  if (classification.kind === 'array') {
+    return redactArray(classification.value, context, depth)
+  }
+  if (classification.kind === 'plain') {
+    return redactPlainObject(value, context, depth)
+  }
+  if (classification.kind === 'unsafe') return REDACTION_SENTINEL
+  return value
 }
 
-function redactArray(value: unknown[], context: RedactionContext): unknown[] {
+function redactArray(
+  value: unknown[],
+  context: RedactionContext,
+  depth: number
+): unknown[] {
   const output: unknown[] = []
   context.memo.set(value, output)
   context.ancestors.add(value)
   try {
-    for (const nested of value) output.push(redactValue(nested, context))
-    return output
-  } finally {
-    context.ancestors.delete(value)
-  }
-}
-
-function redactPlainObject(
-  value: Record<string, unknown>,
-  context: RedactionContext
-): unknown {
-  const entries = ownDataEntries(value)
-  if (!entries) return value
-  const output: Record<string, unknown> = {}
-  context.memo.set(value, output)
-  context.ancestors.add(value)
-  try {
-    for (const [key, nested] of entries) {
-      output[key] = redactValue(nested, context)
+    const entries = ownDataEntries(value)
+    if (!entries) return [REDACTION_SENTINEL]
+    for (const [, nested] of entries) {
+      output.push(redactValue(nested, context, depth + 1))
     }
     return output
   } finally {
@@ -117,28 +167,41 @@ function redactPlainObject(
   }
 }
 
-function isError(value: object): value is Error {
+function redactPlainObject(
+  value: object,
+  context: RedactionContext,
+  depth: number
+): Record<string, unknown> {
+  const entries = ownDataEntries(value)
+  if (!entries) return { redaction: REDACTION_SENTINEL }
+  const output: Record<string, unknown> = {}
+  context.memo.set(value, output)
+  context.ancestors.add(value)
   try {
-    return value instanceof Error
-  } catch {
-    return false
+    for (const [key, nested] of entries) {
+      output[key] = redactValue(nested, context, depth + 1)
+    }
+    return output
+  } finally {
+    context.ancestors.delete(value)
   }
 }
 
-function isArray(value: object): value is unknown[] {
-  try {
-    return Array.isArray(value)
-  } catch {
-    return false
-  }
-}
+type ObjectClassification =
+  | { kind: 'error'; value: Error }
+  | { kind: 'array'; value: unknown[] }
+  | { kind: 'plain' | 'other' | 'unsafe' }
 
-function isPlainObject(value: object): value is Record<string, unknown> {
+function classifyObject(value: object): ObjectClassification {
   try {
+    if (value instanceof Error) return { kind: 'error', value }
+    if (Array.isArray(value)) return { kind: 'array', value }
     const prototype = Object.getPrototypeOf(value)
     return prototype === Object.prototype || prototype === null
+      ? { kind: 'plain' }
+      : { kind: 'other' }
   } catch {
-    return false
+    return { kind: 'unsafe' }
   }
 }
 
@@ -154,13 +217,42 @@ function ownDataEntries(value: object): [string, unknown][] | null {
   }
 }
 
-function redactError(source: Error, context: RedactionContext): Error {
-  const output = new Error(redactTelemetryUrls(source.message))
+function redactError(
+  source: Error,
+  context: RedactionContext,
+  depth: number
+): Error {
+  const properties = ownDataProperties(source)
+  if (!properties) return new Error(REDACTION_SENTINEL)
+  const message =
+    typeof properties.message === 'string'
+      ? redactTelemetryUrls(properties.message)
+      : REDACTION_SENTINEL
+  const output = new Error(message)
   context.memo.set(source, output)
-  if (source.cause !== undefined) {
-    output.cause = redactValue(source.cause, context)
+  context.ancestors.add(source)
+  try {
+    if ('cause' in properties) {
+      output.cause = redactValue(properties.cause, context, depth + 1)
+    }
+    if (typeof properties.name === 'string') output.name = properties.name
+    if (typeof properties.stack === 'string') {
+      output.stack = redactTelemetryUrls(properties.stack)
+    }
+    return output
+  } finally {
+    context.ancestors.delete(source)
   }
-  output.name = source.name
-  if (source.stack) output.stack = redactTelemetryUrls(source.stack)
-  return output
+}
+
+function ownDataProperties(value: object): Record<string, unknown> | null {
+  try {
+    return Object.fromEntries(
+      Object.entries(Object.getOwnPropertyDescriptors(value))
+        .filter(([, descriptor]) => 'value' in descriptor)
+        .map(([key, descriptor]) => [key, descriptor.value])
+    )
+  } catch {
+    return null
+  }
 }

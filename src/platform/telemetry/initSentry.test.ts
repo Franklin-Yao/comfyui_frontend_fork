@@ -28,10 +28,13 @@ it('installs the third-party error filter in the send sanitizer', () => {
   const options = sentryInit.mock.calls.at(-1)?.[0]
   const beforeSend = options?.beforeSend
   expect(
-    beforeSend?.(fromPartial({ message: 'ordinary failure' }), {})
-  ).toMatchObject({
-    message: 'ordinary failure'
-  })
+    beforeSend?.(
+      fromPartial({
+        message: 'Invalid call to runtime.sendMessage(). Tab not found.'
+      }),
+      {}
+    )
+  ).toBeNull()
 })
 
 it('redacts URL secrets from events, breadcrumbs, and spans', () => {
@@ -95,7 +98,7 @@ it('redacts URL secrets from events, breadcrumbs, and spans', () => {
   expect(
     options?.beforeSendSpan?.(
       fromPartial({
-        data: { nested: { url: secretUrl } } as never,
+        data: { source: secretUrl },
         description: `GET ${secretUrl}`,
         span_id: '1234567890abcdef',
         start_timestamp: 1,
@@ -104,6 +107,6 @@ it('redacts URL secrets from events, breadcrumbs, and spans', () => {
     )
   ).toMatchObject({
     description: 'GET https://example.com/model.glb',
-    data: { nested: { url: 'https://example.com/model.glb' } }
+    data: { source: 'https://example.com/model.glb' }
   })
 })

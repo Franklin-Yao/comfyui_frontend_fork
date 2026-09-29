@@ -112,6 +112,9 @@ function tagRumErrorOrigin(event: RumErrorEvent): void {
 
 export const rumBeforeSend: RumBeforeSend = (event) => {
   if (!shouldKeepRumEvent(event)) return false
+  if (event.type === 'resource') {
+    event.resource.url = redactTelemetryUrls(event.resource.url)
+  }
   if (event.type === 'error') {
     fingerprintFirebasePendingPromise(event)
     tagRumErrorOrigin(event)
