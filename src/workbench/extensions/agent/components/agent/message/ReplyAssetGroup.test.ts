@@ -393,6 +393,30 @@ describe('ReplyAssetGroup', () => {
     }
   })
 
+  it('preserves the spent retry attempt when a pending retry is hidden', async () => {
+    isAssetPreviewSupported.mockReturnValue(true)
+    vi.useFakeTimers()
+    try {
+      const { rerender } = renderGroup([model])
+      await vi.waitFor(() =>
+        expect(generateModelThumbnail).toHaveBeenCalledOnce()
+      )
+      await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1))
+
+      await rerender({ assets: [audio] })
+      await rerender({ assets: [model] })
+      await vi.waitFor(() =>
+        expect(generateModelThumbnail).toHaveBeenCalledTimes(2)
+      )
+      await vi.advanceTimersByTimeAsync(2_000)
+
+      expect(generateModelThumbnail).toHaveBeenCalledTimes(3)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('aborts queued generation when unmounted', async () => {
     isAssetPreviewSupported.mockReturnValue(true)
     // Keep the render pending so the strand is still 'loading' (not yet

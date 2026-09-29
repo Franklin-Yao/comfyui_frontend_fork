@@ -165,14 +165,15 @@ function scheduleThumbnailRetry(
     thumbnailState.value[url] = { phase: 'gaveUp' }
     return
   }
+  const nextAttempts = attempts + 1
   const timeout = setTimeout(() => {
     if (!mounted) return
-    loadModelThumbnail(url, filename, attempts + 1)
+    loadModelThumbnail(url, filename, nextAttempts)
   }, THUMBNAIL_RETRY_DELAY_MS)
   thumbnailState.value[url] = {
     phase: 'retryPending',
     timeout: markRaw(timeout),
-    attempts
+    attempts: nextAttempts
   }
 }
 
