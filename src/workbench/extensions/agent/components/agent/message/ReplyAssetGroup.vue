@@ -194,9 +194,10 @@ function loadModelThumbnail(
 }
 
 /**
- * A `failed` render may be a transient deadline expiry rather than a
+ * A `failed` render may be a transient renderer failure rather than a
  * genuinely unrenderable model, so it gets a bounded retry instead of
- * pinning the box icon for the message's lifetime.
+ * pinning the box icon for the message's lifetime. Deadline expiry is
+ * terminal.
  */
 function scheduleThumbnailRetry(
   url: string,
