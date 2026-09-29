@@ -53,15 +53,20 @@ describe('generateModelThumbnail deferred renderer import', () => {
       'deferred.glb',
       controller.signal
     )
-    const next = generateModelThumbnail('/next.glb', 'next.glb')
+    const nextController = new AbortController()
+    const next = generateModelThumbnail(
+      '/next.glb',
+      'next.glb',
+      nextController.signal
+    )
     await rendererModule.importStarted
 
+    nextController.abort()
     controller.abort()
     await vi.advanceTimersByTimeAsync(0)
 
     await expect(cancelled).resolves.toEqual({ status: 'cancelled' })
-    await vi.advanceTimersByTimeAsync(15_000)
-    await expect(next).resolves.toEqual({ status: 'timedOut' })
+    await expect(next).resolves.toEqual({ status: 'cancelled' })
     expect(rendererModule.acquire).not.toHaveBeenCalled()
     expect(createLoad3d).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(0)
