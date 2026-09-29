@@ -358,10 +358,6 @@ describe('ReplyAssetGroup', () => {
   })
 
   it('bounds retries to exactly the initial attempt plus MAX_THUMBNAIL_RETRIES', async () => {
-    // Regression coverage for a bug where every retry rescheduled with
-    // attempts=0 instead of the incremented count, so a persistently
-    // failing render never reached MAX_THUMBNAIL_RETRIES and kept
-    // rescheduling every THUMBNAIL_RETRY_DELAY_MS indefinitely.
     isAssetPreviewSupported.mockReturnValue(true)
     vi.useFakeTimers()
     try {
@@ -370,15 +366,11 @@ describe('ReplyAssetGroup', () => {
         expect(generateModelThumbnail).toHaveBeenCalledOnce()
       )
 
-      // MAX_THUMBNAIL_RETRIES = 2, THUMBNAIL_RETRY_DELAY_MS = 2000:
-      // the initial call plus 2 retries is 3 total calls, then the retry
-      // budget is spent and no further calls are scheduled.
       await vi.advanceTimersByTimeAsync(2_000)
       expect(generateModelThumbnail).toHaveBeenCalledTimes(2)
       await vi.advanceTimersByTimeAsync(2_000)
       expect(generateModelThumbnail).toHaveBeenCalledTimes(3)
 
-      // No timer left pending once the budget is spent.
       expect(vi.getTimerCount()).toBe(0)
       await vi.advanceTimersByTimeAsync(10_000)
       expect(generateModelThumbnail).toHaveBeenCalledTimes(3)
@@ -388,12 +380,6 @@ describe('ReplyAssetGroup', () => {
   })
 
   it('cancels a pending retry timer when the asset is hidden', async () => {
-    // Regression coverage: a retry scheduled while the tile was visible
-    // used to keep a bare setTimeout with no per-url handle, so
-    // `hideThumbnail` (fired by "Show less" / the asset leaving
-    // visibleVisual) had nothing to cancel. The retry fired anyway and
-    // called loadModelThumbnail for an asset the watcher had already
-    // dropped from thumbnailState.
     isAssetPreviewSupported.mockReturnValue(true)
     vi.useFakeTimers()
     try {
@@ -403,8 +389,6 @@ describe('ReplyAssetGroup', () => {
       )
       await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1))
 
-      // The failed render schedules a retry in THUMBNAIL_RETRY_DELAY_MS.
-      // Hide the asset before that retry fires.
       await rerender({ assets: [audio] })
 
       await vi.advanceTimersByTimeAsync(10_000)
@@ -441,10 +425,6 @@ describe('ReplyAssetGroup', () => {
 
   it('aborts queued generation when unmounted', async () => {
     isAssetPreviewSupported.mockReturnValue(true)
-    // Keep the render pending so the strand is still 'loading' (not yet
-    // settled to 'ready'/'gaveUp') when unmount fires — a mock that
-    // resolves immediately would let the retry-on-failure transition win
-    // the race and leave nothing in flight to abort.
     let resolveGenerate!: (result: {
       status: 'rendered'
       dataUrl: string
@@ -472,9 +452,6 @@ describe('ReplyAssetGroup', () => {
       isAssetPreviewSupported.mockReturnValue(true)
       const { unmount } = renderGroup([model])
       await vi.waitFor(() => expect(findServerPreviewUrl).toHaveBeenCalled())
-      // The initial lookup's fallback render (default mock: 'failed') has
-      // already scheduled its own bounded retry alongside the dialog-close
-      // refresh below, so two independent timers are pending at this point.
       await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1))
       await userEvent.click(screen.getByRole('button', { name: 'mesh.glb' }))
       const dialog = vi
@@ -612,18 +589,12 @@ describe('ReplyAssetGroup', () => {
     await waitFor(() => expect(generateModelThumbnail).toHaveBeenCalledOnce())
     const [, , firstSignal] = generateModelThumbnail.mock.calls[0]
 
-    // The asset drops out of visibleVisual (e.g. the message shrinking to
-    // just the audio track) before its render settles.
     await rerender({ assets: [audio] })
     expect(firstSignal?.aborted).toBe(true)
 
-    // A late resolution of the aborted strand must not resurrect it as the
-    // tile's src (it is no longer the owning strand for that url).
     resolveGenerate({ status: 'rendered', dataUrl: 'data:image/png;base64,x' })
     await Promise.resolve()
 
-    // The asset becomes visible again: it must restart, not stay
-    // permanently blank (the bug this replaced state model fixes).
     generateModelThumbnail.mockResolvedValueOnce({
       status: 'rendered',
       dataUrl: 'data:image/png;base64,restarted'
