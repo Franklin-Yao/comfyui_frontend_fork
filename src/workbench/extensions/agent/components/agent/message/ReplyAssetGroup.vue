@@ -21,7 +21,7 @@ import { cn } from '@comfyorg/tailwind-utils'
 
 import type { ReplyAsset } from '../../../utils/replyAssets'
 import { replyAssetResultItem } from '../../../utils/replyAssets'
-import ReplyAudioCard from './ReplyAudioCard.vue'
+import ReplyAudioAssetGroup from './ReplyAudioAssetGroup.vue'
 import ReplyVisualAsset from './ReplyVisualAsset.vue'
 
 const { assets } = defineProps<{ assets: ReplyAsset[] }>()
@@ -395,32 +395,14 @@ function inspect(asset: ReplyAsset): void {
       />
     </Button>
 
-    <div v-if="audio.length" class="flex flex-col gap-1">
-      <ReplyAudioCard
-        v-for="asset in visibleAudio"
-        :key="asset.url"
-        :asset
-        :title="assetNames[asset.url] || asset.filename"
-      />
-      <Button
-        v-if="audioCollapsible"
-        type="button"
-        variant="outline"
-        size="sm"
-        class="self-center rounded-full border-component-node-border"
-        @click="audioExpanded = !audioExpanded"
-      >
-        {{ audioExpanded ? t('agent.showLess') : t('agent.showMore') }}
-        <span
-          :class="
-            cn(
-              'icon-[lucide--chevron-down] size-3',
-              audioExpanded && 'rotate-180'
-            )
-          "
-        />
-      </Button>
-    </div>
+    <ReplyAudioAssetGroup
+      v-if="audio.length"
+      :assets="visibleAudio"
+      :asset-names
+      :collapsible="audioCollapsible"
+      :expanded="audioExpanded"
+      @toggle="audioExpanded = !audioExpanded"
+    />
 
     <MediaLightbox
       v-if="galleryIndex !== -1"

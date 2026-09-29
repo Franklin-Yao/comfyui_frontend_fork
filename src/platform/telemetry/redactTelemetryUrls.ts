@@ -43,44 +43,57 @@ export function redactTelemetryValues(
   values: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
   if (!values) return values
-  const ancestors = new WeakSet<object>()
-  const memo = new WeakMap<object, unknown>()
-  const redact = (value: unknown): unknown => {
-    if (typeof value === 'string') return redactTelemetryUrls(value)
-    if (typeof value !== 'object' || value === null) return value
-    if (ancestors.has(value)) return '[Circular]'
-    if (memo.has(value)) return memo.get(value)
-    if (isError(value)) return redactError(value, redact, memo)
-    const array = isArray(value)
-    if (!array && !isPlainObject(value)) return value
+  return redactValue(values, {
+    ancestors: new WeakSet<object>(),
+    memo: new WeakMap<object, unknown>()
+  }) as Record<string, unknown>
+}
 
-    if (array) {
-      const output: unknown[] = []
-      memo.set(value, output)
-      ancestors.add(value)
-      try {
-        for (const nested of value) output.push(redact(nested))
-        return output
-      } finally {
-        ancestors.delete(value)
-      }
-    }
+interface RedactionContext {
+  ancestors: WeakSet<object>
+  memo: WeakMap<object, unknown>
+}
 
-    const entries = ownDataEntries(value)
-    if (!entries) return value
-    const output: Record<string, unknown> = {}
-    memo.set(value, output)
-    ancestors.add(value)
-    try {
-      for (const [key, nested] of entries) {
-        output[key] = redact(nested)
-      }
-      return output
-    } finally {
-      ancestors.delete(value)
-    }
+function redactValue(value: unknown, context: RedactionContext): unknown {
+  if (typeof value === 'string') return redactTelemetryUrls(value)
+  if (typeof value !== 'object' || value === null) return value
+  if (context.ancestors.has(value)) return '[Circular]'
+  if (context.memo.has(value)) return context.memo.get(value)
+  if (isError(value)) return redactError(value, context)
+  if (isArray(value)) return redactArray(value, context)
+  if (!isPlainObject(value)) return value
+  return redactPlainObject(value, context)
+}
+
+function redactArray(value: unknown[], context: RedactionContext): unknown[] {
+  const output: unknown[] = []
+  context.memo.set(value, output)
+  context.ancestors.add(value)
+  try {
+    for (const nested of value) output.push(redactValue(nested, context))
+    return output
+  } finally {
+    context.ancestors.delete(value)
   }
-  return redact(values) as Record<string, unknown>
+}
+
+function redactPlainObject(
+  value: Record<string, unknown>,
+  context: RedactionContext
+): unknown {
+  const entries = ownDataEntries(value)
+  if (!entries) return value
+  const output: Record<string, unknown> = {}
+  context.memo.set(value, output)
+  context.ancestors.add(value)
+  try {
+    for (const [key, nested] of entries) {
+      output[key] = redactValue(nested, context)
+    }
+    return output
+  } finally {
+    context.ancestors.delete(value)
+  }
 }
 
 function isError(value: object): value is Error {
@@ -120,14 +133,12 @@ function ownDataEntries(value: object): [string, unknown][] | null {
   }
 }
 
-function redactError(
-  source: Error,
-  redact: (value: unknown) => unknown,
-  memo: WeakMap<object, unknown>
-): Error {
+function redactError(source: Error, context: RedactionContext): Error {
   const output = new Error(redactTelemetryUrls(source.message))
-  memo.set(source, output)
-  if (source.cause !== undefined) output.cause = redact(source.cause)
+  context.memo.set(source, output)
+  if (source.cause !== undefined) {
+    output.cause = redactValue(source.cause, context)
+  }
   output.name = source.name
   if (source.stack) output.stack = redactTelemetryUrls(source.stack)
   return output
