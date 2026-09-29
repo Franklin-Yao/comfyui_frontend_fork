@@ -204,7 +204,7 @@ test.describe('Download page @smoke', () => {
       const hero = heroLocator(page)
 
       const windowsBtn = hero.getByRole('link', {
-        name: /DOWNLOAD DESKTOP — Windows/i
+        name: 'DOWNLOAD DESKTOP Windows x64'
       })
       await expect(windowsBtn).toBeVisible()
       await expect(windowsBtn).toHaveAttribute(
@@ -213,7 +213,7 @@ test.describe('Download page @smoke', () => {
       )
 
       const macBtn = hero.getByRole('link', {
-        name: /DOWNLOAD DESKTOP — macOS/i
+        name: 'DOWNLOAD DESKTOP macOS (Apple Silicon)'
       })
       await expect(macBtn).toBeVisible()
       await expect(macBtn).toHaveAttribute(

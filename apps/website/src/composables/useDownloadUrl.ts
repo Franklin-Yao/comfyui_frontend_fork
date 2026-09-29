@@ -1,6 +1,5 @@
 import { computed, onMounted, ref } from 'vue'
 
-import { externalLinks } from '@/config/routes'
 import type { TranslationKey } from '@/i18n/translations'
 
 export type Platform = 'windows' | 'mac' | 'linux'
@@ -38,6 +37,8 @@ export const installers = {
     label: 'download.hero.installers.linuxArm64'
   }
 } as const satisfies Record<string, DesktopInstaller>
+
+export type Installer = keyof typeof installers
 
 export interface DetectedDevice {
   platform: Platform | null
@@ -106,15 +107,13 @@ export function useDownloadUrl() {
   const isMobileUa = ref(false)
   const armInstaller = ref(false)
 
-  const downloadUrl = computed(() => {
+  const installer = computed<Installer | null>(() => {
     if (platform.value === 'windows') {
-      return armInstaller.value
-        ? installers.windowsArm.url
-        : installers.windows.url
+      return armInstaller.value ? 'windowsArm' : 'windows'
     }
-    if (platform.value === 'mac') return installers.macArm.url
-    if (platform.value === 'linux') return installers.linux.url
-    return externalLinks.github
+    if (platform.value === 'mac') return 'macArm'
+    if (platform.value === 'linux') return 'linux'
+    return null
   })
 
   const showFallback = computed(
@@ -131,5 +130,5 @@ export function useDownloadUrl() {
     detected.value = true
   })
 
-  return { downloadUrl, platform, showFallback, isMobileUa }
+  return { installer, platform, showFallback, isMobileUa }
 }

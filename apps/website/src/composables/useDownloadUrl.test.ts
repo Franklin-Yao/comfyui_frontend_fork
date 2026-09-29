@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/vue'
 import { describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 
-import { detectDevice, useDownloadUrl } from './useDownloadUrl'
+import { detectDevice, installers, useDownloadUrl } from './useDownloadUrl'
 
 const UA = {
   iphone:
@@ -118,9 +118,11 @@ function visitOnWindows(
 
 const DownloadLink = defineComponent({
   setup() {
-    const { downloadUrl, platform } = useDownloadUrl()
+    const { installer } = useDownloadUrl()
     return () =>
-      platform.value ? h('a', { href: downloadUrl.value }, 'Download') : null
+      installer.value
+        ? h('a', { href: installers[installer.value].url }, 'Download')
+        : null
   }
 })
 

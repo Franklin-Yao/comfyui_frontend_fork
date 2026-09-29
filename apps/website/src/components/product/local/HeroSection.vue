@@ -301,21 +301,23 @@ onUnmounted(() => {
 
       <div class="mt-8 flex flex-col gap-4 lg:flex-row lg:items-end">
         <MobileDownloadEmailForm :locale />
-        <DownloadLocalButton :locale class="lg:min-w-60 lg:p-4" />
-        <BrandButton
-          :href="externalLinks.githubInstall"
-          variant="outline"
-          size="lg"
-          class="lg:min-w-60 lg:p-4"
-        >
-          <span class="inline-flex items-center gap-2">
-            <i
-              class="size-5 icon-mask mask-[url('/icons/social/github.svg')]"
-              aria-hidden="true"
-            />
-            {{ t('download.hero.installGithub', locale) }}
-          </span>
-        </BrandButton>
+        <div class="flex flex-col gap-4 lg:flex-row">
+          <DownloadLocalButton :locale class="lg:min-w-60 lg:p-4" />
+          <BrandButton
+            :href="externalLinks.githubInstall"
+            variant="outline"
+            size="lg"
+            class="lg:min-w-60 lg:p-4"
+          >
+            <span class="inline-flex items-center gap-2">
+              <i
+                class="size-5 icon-mask mask-[url('/icons/social/github.svg')]"
+                aria-hidden="true"
+              />
+              {{ t('download.hero.installGithub', locale) }}
+            </span>
+          </BrandButton>
+        </div>
       </div>
       <InstallerMenu :locale />
     </div>
