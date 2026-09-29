@@ -146,6 +146,18 @@ describe('generateModelThumbnail', () => {
     expect(instance.remove).toHaveBeenCalledTimes(1)
   })
 
+  it('reports a non-loaded model outcome as a failure', async () => {
+    const instance = mockInstance({
+      loadModel: vi.fn().mockResolvedValue('empty')
+    })
+    createLoad3d.mockReturnValue(instance)
+
+    await expect(
+      generateModelThumbnail('/unknown.bin', 'unknown.bin')
+    ).resolves.toEqual({ status: 'failed' })
+    expect(reportError).toHaveBeenCalledOnce()
+  })
+
   it('reports renderer acquisition failures as a failed result', async () => {
     vi.mocked(acquireSharedRenderer).mockImplementationOnce(() => {
       throw new Error('WebGL context unavailable')

@@ -197,7 +197,10 @@ async function renderThumbnailInner(
     const outcome = await load3d.loadModel(modelUrl, undefined, {
       silent: true
     })
-    if (outcome !== 'loaded') throw RENDER_CANCELLED
+    if (outcome === 'cancelled') throw RENDER_CANCELLED
+    if (outcome !== 'loaded') {
+      throw new Error(`Model thumbnail load ended with ${outcome}`)
+    }
     signal.throwIfAborted()
     const dataUrl = await load3d.captureThumbnail(256, 256)
     signal.throwIfAborted()
