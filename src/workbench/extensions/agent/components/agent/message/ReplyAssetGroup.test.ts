@@ -357,16 +357,9 @@ describe('ReplyAssetGroup', () => {
     }
   })
 
-  it('does not spend the failure retry budget on queue backpressure', async () => {
+  it('bounds sustained queue backpressure with exponential retries and one server lookup', async () => {
     isAssetPreviewSupported.mockReturnValue(true)
-    generateModelThumbnail
-      .mockResolvedValueOnce({ status: 'busy' })
-      .mockResolvedValueOnce({ status: 'busy' })
-      .mockResolvedValueOnce({ status: 'busy' })
-      .mockResolvedValueOnce({
-        status: 'rendered',
-        dataUrl: 'data:image/png;base64,after-backpressure'
-      })
+    generateModelThumbnail.mockResolvedValue({ status: 'busy' })
     vi.useFakeTimers()
     try {
       renderGroup([model])
@@ -374,13 +367,52 @@ describe('ReplyAssetGroup', () => {
         expect(generateModelThumbnail).toHaveBeenCalledOnce()
       )
 
-      await vi.advanceTimersByTimeAsync(6_000)
+      await vi.advanceTimersByTimeAsync(62_000)
 
-      expect(generateModelThumbnail).toHaveBeenCalledTimes(4)
-      expect(screen.getByRole('img', { name: 'mesh.glb' })).toHaveAttribute(
-        'src',
-        'data:image/png;base64,after-backpressure'
+      expect(generateModelThumbnail).toHaveBeenCalledTimes(6)
+      expect(findServerPreviewUrl).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels a backpressure retry when hidden and restarts cleanly when shown', async () => {
+    isAssetPreviewSupported.mockReturnValue(true)
+    generateModelThumbnail.mockResolvedValue({ status: 'busy' })
+    vi.useFakeTimers()
+    try {
+      const { rerender } = renderGroup([model])
+      await vi.waitFor(() =>
+        expect(generateModelThumbnail).toHaveBeenCalledOnce()
       )
+      await rerender({ assets: [audio] })
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(generateModelThumbnail).toHaveBeenCalledOnce()
+
+      await rerender({ assets: [model] })
+      await vi.waitFor(() =>
+        expect(generateModelThumbnail).toHaveBeenCalledTimes(2)
+      )
+      expect(findServerPreviewUrl).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels a backpressure retry when unmounted', async () => {
+    isAssetPreviewSupported.mockReturnValue(true)
+    generateModelThumbnail.mockResolvedValue({ status: 'busy' })
+    vi.useFakeTimers()
+    try {
+      const { unmount } = renderGroup([model])
+      await vi.waitFor(() =>
+        expect(generateModelThumbnail).toHaveBeenCalledOnce()
+      )
+      unmount()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(generateModelThumbnail).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
     } finally {
       vi.useRealTimers()
     }

@@ -81,19 +81,27 @@ const galleryIndex = ref(-1)
  * every pending strand.
  */
 type ThumbnailState =
-  | { phase: 'loading'; controller: AbortController; attempts: number }
+  | {
+      phase: 'loading'
+      controller: AbortController
+      attempts: number
+      busyAttempts: number
+    }
   | {
       phase: 'retryPending'
       timeout: ReturnType<typeof setTimeout>
       attempts: number
+      busyAttempts: number
     }
-  | { phase: 'paused'; attempts: number }
+  | { phase: 'paused'; attempts: number; busyAttempts: number }
   | { phase: 'ready'; src: string }
   | { phase: 'gaveUp' }
 
 /** Retries after the initial render attempt. */
 const MAX_THUMBNAIL_RETRIES = 2
 const THUMBNAIL_RETRY_DELAY_MS = 2000
+const MAX_THUMBNAIL_BUSY_RETRIES = 5
+const MAX_THUMBNAIL_BUSY_DELAY_MS = 30_000
 
 const thumbnailState = ref<Record<string, ThumbnailState>>({})
 const assetNames = ref<Record<string, string>>({})
@@ -129,11 +137,25 @@ function owns(url: string, controller: AbortController): boolean {
 }
 
 /** Look up a server-rendered preview, falling back to an offscreen render. */
-function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
+function loadModelThumbnail(
+  url: string,
+  filename: string,
+  attempts = 0,
+  busyAttempts = 0,
+  checkServerPreview = true
+): void {
   const controller = markRaw(new AbortController())
-  thumbnailState.value[url] = { phase: 'loading', controller, attempts }
+  thumbnailState.value[url] = {
+    phase: 'loading',
+    controller,
+    attempts,
+    busyAttempts
+  }
 
-  void findServerPreviewUrl(filename)
+  const previewLookup = checkServerPreview
+    ? findServerPreviewUrl(filename)
+    : Promise.resolve(null)
+  void previewLookup
     .then(async (preview) => {
       if (!mounted || !owns(url, controller)) return
       if (preview) {
@@ -153,7 +175,8 @@ function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
           url,
           filename,
           attempts,
-          result.status !== 'busy'
+          busyAttempts,
+          result.status
         )
       } else {
         thumbnailState.value[url] = { phase: 'gaveUp' }
@@ -174,21 +197,40 @@ function scheduleThumbnailRetry(
   url: string,
   filename: string,
   attempts: number,
-  countAttempt = true
+  busyAttempts = 0,
+  status: 'failed' | 'busy' = 'failed'
 ): void {
-  if (countAttempt && attempts >= MAX_THUMBNAIL_RETRIES) {
+  if (
+    (status === 'failed' && attempts >= MAX_THUMBNAIL_RETRIES) ||
+    (status === 'busy' && busyAttempts >= MAX_THUMBNAIL_BUSY_RETRIES)
+  ) {
     thumbnailState.value[url] = { phase: 'gaveUp' }
     return
   }
-  const nextAttempts = countAttempt ? attempts + 1 : attempts
+  const nextAttempts = status === 'failed' ? attempts + 1 : attempts
+  const nextBusyAttempts = status === 'busy' ? busyAttempts + 1 : busyAttempts
+  const delay =
+    status === 'busy'
+      ? Math.min(
+          THUMBNAIL_RETRY_DELAY_MS * 2 ** busyAttempts,
+          MAX_THUMBNAIL_BUSY_DELAY_MS
+        )
+      : THUMBNAIL_RETRY_DELAY_MS
   const timeout = setTimeout(() => {
     if (!mounted) return
-    loadModelThumbnail(url, filename, nextAttempts)
-  }, THUMBNAIL_RETRY_DELAY_MS)
+    loadModelThumbnail(
+      url,
+      filename,
+      nextAttempts,
+      nextBusyAttempts,
+      status !== 'busy'
+    )
+  }, delay)
   thumbnailState.value[url] = {
     phase: 'retryPending',
     timeout: markRaw(timeout),
-    attempts: nextAttempts
+    attempts: nextAttempts,
+    busyAttempts: nextBusyAttempts
   }
 }
 
@@ -200,7 +242,8 @@ function hideThumbnail(url: string): void {
   cancelThumbnailState(state)
   thumbnailState.value[url] = {
     phase: 'paused',
-    attempts: state?.attempts ?? 0
+    attempts: state?.attempts ?? 0,
+    busyAttempts: state?.busyAttempts ?? 0
   }
 }
 
@@ -220,7 +263,7 @@ function showThumbnail(url: string, filename: string): void {
   const state = thumbnailState.value[url]
   if (!state) loadModelThumbnail(url, filename)
   else if (state.phase === 'paused') {
-    loadModelThumbnail(url, filename, state.attempts)
+    loadModelThumbnail(url, filename, state.attempts, state.busyAttempts)
   }
 }
 
