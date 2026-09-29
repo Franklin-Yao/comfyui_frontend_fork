@@ -79,7 +79,7 @@ describe('generateModelThumbnail', () => {
     vi.useFakeTimers()
     try {
       const stalled = mockInstance({
-        loadModel: vi.fn(() => new Promise(() => {}))
+        loadModel: vi.fn<Load3d['loadModel']>(() => new Promise(() => {}))
       })
       const next = mockInstance()
       createLoad3d.mockReturnValueOnce(stalled).mockReturnValueOnce(next)
@@ -116,7 +116,7 @@ describe('generateModelThumbnail', () => {
 
   it('skips a queued render whose caller aborted before its turn', async () => {
     const blocked = mockInstance({
-      loadModel: vi.fn(() => new Promise(() => {}))
+      loadModel: vi.fn<Load3d['loadModel']>(() => new Promise(() => {}))
     })
     const skipped = mockInstance()
     createLoad3d.mockReturnValueOnce(blocked).mockReturnValueOnce(skipped)
@@ -205,7 +205,10 @@ describe('generateModelThumbnail', () => {
     let releaseFirst!: () => void
     const first = mockInstance({
       loadModel: vi.fn(
-        () => new Promise<void>((resolve) => (releaseFirst = resolve))
+        () =>
+          new Promise<'loaded'>((resolve) => {
+            releaseFirst = () => resolve('loaded')
+          })
       )
     })
     const second = mockInstance()
@@ -226,7 +229,7 @@ describe('generateModelThumbnail', () => {
     vi.useFakeTimers()
     try {
       const stuck = mockInstance({
-        loadModel: vi.fn(() => new Promise<void>(() => {}))
+        loadModel: vi.fn<Load3d['loadModel']>(() => new Promise(() => {}))
       })
       const next = mockInstance()
       createLoad3d.mockReturnValueOnce(stuck).mockReturnValueOnce(next)
