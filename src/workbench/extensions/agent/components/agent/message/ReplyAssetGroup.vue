@@ -72,8 +72,8 @@ const galleryItems = computed(() =>
 const galleryIndex = ref(-1)
 
 /**
- * One entry per model url; dropping the entry and cancelling its in-flight
- * work are the same synchronous act.
+ * One retained entry per model URL records its current lifecycle phase;
+ * cancellation stops owned work without removing that entry.
  *
  * `controller` must be `markRaw`: a `ref` deep-proxies nested objects, so an
  * unwrapped `state.controller === controller` comparison would compare a
