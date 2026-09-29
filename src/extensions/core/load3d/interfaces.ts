@@ -281,9 +281,10 @@ export interface SceneOverlay {
  * - `'loaded'` — a model was fetched, parsed, and handed to `setupModel`.
  * - `'cancelled'` — a newer `loadModel` or `dispose()` superseded this load;
  *   the manager may already be torn down.
- * - `'empty'` — no adapter claimed the file, or the URL had no filename;
- *   `{ silent: true }` throws instead of returning this.
- * - `'failed'` — the load threw (network, parse, or an unknown file type).
+ * - `'empty'` — for a normal call, no adapter claimed the file or the URL had
+ *   no filename. `{ silent: true }` throws for this case.
+ * - `'failed'` — for a normal call, fetching or parsing threw. A silent call
+ *   rejects instead of returning this outcome.
  */
 export type LoadModelOutcome = 'loaded' | 'cancelled' | 'empty' | 'failed'
 
