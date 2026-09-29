@@ -4,11 +4,11 @@ import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/button/Button.vue'
 import { cn } from '@comfyorg/tailwind-utils'
 
-import type { ReplyAsset } from '../../../utils/replyAssets'
+import type { ReplyAudioAsset } from '../../../utils/replyAssets'
 import ReplyAudioCard from './ReplyAudioCard.vue'
 
-defineProps<{
-  assets: ReplyAsset[]
+const { assets, assetNames, collapsible, expanded } = defineProps<{
+  assets: ReplyAudioAsset[]
   assetNames: Record<string, string>
   collapsible: boolean
   expanded: boolean

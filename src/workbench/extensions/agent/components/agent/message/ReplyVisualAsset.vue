@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { cn } from '@comfyorg/tailwind-utils'
 
-import type { ReplyAsset } from '../../../utils/replyAssets'
+import type { ReplyVisualAsset } from '../../../utils/replyAssets'
 
 defineProps<{
-  asset: ReplyAsset
+  asset: ReplyVisualAsset
   multi: boolean
   modelThumbnailSrc: string
 }>()

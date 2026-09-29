@@ -363,13 +363,17 @@ describe('ReplyAssetGroup', () => {
     vi.useFakeTimers()
     try {
       renderGroup([model])
-      await vi.waitFor(() =>
-        expect(generateModelThumbnail).toHaveBeenCalledOnce()
-      )
+      await vi.advanceTimersByTimeAsync(0)
+      expect(generateModelThumbnail).toHaveBeenCalledOnce()
 
-      await vi.advanceTimersByTimeAsync(991_000)
+      const retryDelays = [2, 4, 8, 16, 32, 64, 128, 256, 480]
+      for (const [index, delaySeconds] of retryDelays.entries()) {
+        await vi.advanceTimersByTimeAsync(delaySeconds * 1000 - 1)
+        expect(generateModelThumbnail).toHaveBeenCalledTimes(index + 1)
+        await vi.advanceTimersByTimeAsync(1)
+        expect(generateModelThumbnail).toHaveBeenCalledTimes(index + 2)
+      }
 
-      expect(generateModelThumbnail).toHaveBeenCalledTimes(10)
       expect(findServerPreviewUrl).toHaveBeenCalledOnce()
       expect(vi.getTimerCount()).toBe(0)
     } finally {

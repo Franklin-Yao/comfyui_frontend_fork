@@ -19,8 +19,15 @@ import {
 import { useDialogStore } from '@/stores/dialogStore'
 import { cn } from '@comfyorg/tailwind-utils'
 
-import type { ReplyAsset } from '../../../utils/replyAssets'
-import { replyAssetResultItem } from '../../../utils/replyAssets'
+import type {
+  ReplyAsset,
+  ReplyVisualAsset as ReplyVisualAssetData
+} from '../../../utils/replyAssets'
+import {
+  isReplyAudioAsset,
+  isReplyVisualAsset,
+  replyAssetResultItem
+} from '../../../utils/replyAssets'
 import ReplyAudioAssetGroup from './ReplyAudioAssetGroup.vue'
 import ReplyVisualAsset from './ReplyVisualAsset.vue'
 
@@ -31,8 +38,8 @@ const { t } = useI18n()
 /* Three rows of the four-column grid, per DES-530. */
 const COLLAPSED_COUNT = 12
 
-const visual = computed(() => assets.filter((asset) => asset.kind !== 'audio'))
-const audio = computed(() => assets.filter((asset) => asset.kind === 'audio'))
+const visual = computed(() => assets.filter(isReplyVisualAsset))
+const audio = computed(() => assets.filter(isReplyAudioAsset))
 
 const expanded = ref(false)
 const collapsible = computed(() => visual.value.length > COLLAPSED_COUNT)
@@ -342,7 +349,7 @@ function modelThumbnailSrc(url: string): string {
   return state?.phase === 'ready' ? state.src : ''
 }
 
-function inspect(asset: ReplyAsset): void {
+function inspect(asset: ReplyVisualAssetData): void {
   if (asset.kind === '3D') {
     useDialogStore().showDialog({
       key: 'asset-3d-viewer',
