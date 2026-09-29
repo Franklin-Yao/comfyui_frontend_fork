@@ -1,14 +1,19 @@
 /** Remove credentials, query strings, and fragments from URL-shaped text. */
 export function redactTelemetryUrls(text: string): string {
-  return text.replace(/(?:https?:)?\/\/[^\s"']+|\/[^\s"']+/g, (token) => {
-    const clean = token.split(/[?#]/, 1)[0]
+  return text.replace(
+    /(?:https?:)?\/\/[^\s"',;<>()[\]]+|\/[A-Za-z0-9._~%-][^\s"',;<>()[\]]*/g,
+    (token) => {
+      const stackSuffix = token.match(/:\d+:\d+$/)?.[0] ?? ''
+      const url = stackSuffix ? token.slice(0, -stackSuffix.length) : token
+      const clean = url.split(/[?#]/, 1)[0]
     const absolute = clean.match(/^((?:https?:)?\/\/)([^/]*)(.*)$/)
-    if (!absolute) return clean
+      if (!absolute) return `${clean}${stackSuffix}`
 
-    const [, prefix, authority, path] = absolute
-    const userInfoEnd = authority.lastIndexOf('@')
-    return `${prefix}${authority.slice(userInfoEnd + 1)}${path}`
-  })
+      const [, prefix, authority, path] = absolute
+      const userInfoEnd = authority.lastIndexOf('@')
+      return `${prefix}${authority.slice(userInfoEnd + 1)}${path}${stackSuffix}`
+    }
+  )
 }
 
 export function redactTelemetryValues(

@@ -24,6 +24,14 @@ describe('redactTelemetryUrls', () => {
       '/api/view'
     )
   })
+
+  it('redacts adjacent URLs without consuming punctuation or stack locations', () => {
+    expect(
+      redactTelemetryUrls(
+        'https://a/b,https://user:pw@c/d?t=1; at f (https://host/a.js?v=1:12:9)'
+      )
+    ).toBe('https://a/b,https://c/d; at f (https://host/a.js:12:9)')
+  })
 })
 
 describe('redactTelemetryValues', () => {
