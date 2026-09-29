@@ -178,6 +178,21 @@ describe('SceneModelManager', () => {
       expect(manager.appliedTexture).toBeNull()
     })
 
+    it('disposes an owned texture before replacing it with a borrowed one', () => {
+      const { manager } = createManager()
+      const owned = new THREE.Texture()
+      const borrowed = new THREE.Texture()
+      const ownedDispose = vi.spyOn(owned, 'dispose')
+      const borrowedDispose = vi.spyOn(borrowed, 'dispose')
+      manager.appliedTexture = owned
+
+      manager.borrowAppliedTexture(borrowed)
+
+      expect(ownedDispose).toHaveBeenCalledOnce()
+      expect(borrowedDispose).not.toHaveBeenCalled()
+      expect(manager.appliedTexture).toBe(borrowed)
+    })
+
     it('preserves a borrowed texture while replacing the rendered model', () => {
       const { manager, scene } = createManager({
         capabilities: { requiresMaterialRebuild: true }

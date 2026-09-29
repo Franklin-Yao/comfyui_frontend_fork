@@ -566,6 +566,28 @@ describe('load3dService', () => {
       expect(state.modelManager.currentModel).toBe(clone)
     })
 
+    it('gives the clone independently disposable geometry, material, and textures', async () => {
+      const geometry = new THREE.BoxGeometry()
+      const texture = new THREE.Texture()
+      const material = new THREE.MeshStandardMaterial({ map: texture })
+      const sourceModel = new THREE.Group()
+      const clone = new THREE.Group()
+      clone.add(new THREE.Mesh(geometry, material))
+      const source = makeSource({ currentModel: sourceModel })
+      const { target } = makeTarget()
+      skeletonCloneMock.mockReturnValue(clone)
+
+      await useLoad3dService().copyLoad3dState(source, target)
+
+      const clonedMesh = clone.children[0] as THREE.Mesh<
+        THREE.BoxGeometry,
+        THREE.MeshStandardMaterial
+      >
+      expect(clonedMesh.geometry).not.toBe(geometry)
+      expect(clonedMesh.material).not.toBe(material)
+      expect(clonedMesh.material.map).not.toBe(texture)
+    })
+
     it('copies originalModel, material mode, up direction, and applied texture from source to target', async () => {
       const sourceOriginal = { kind: 'gltf' }
       const texture = { id: 'tex1' }

@@ -41,6 +41,7 @@ export type ModelThumbnailResult =
   | { status: 'rendered'; dataUrl: string }
   | { status: 'cancelled' }
   | { status: 'busy' }
+  | { status: 'timedOut' }
   | { status: 'failed' }
 
 /**
@@ -131,6 +132,7 @@ async function renderThumbnailWithTimeout(
     if (error === cancelError || error === RENDER_CANCELLED) {
       return { status: 'cancelled' }
     }
+    if (error instanceof TimeoutError) return { status: 'timedOut' }
     reportError(redactedCopy(error), {
       errorType: 'agent_model_thumbnail_generation_failure'
     })

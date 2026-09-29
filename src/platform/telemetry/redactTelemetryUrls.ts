@@ -24,29 +24,50 @@ function peelTrailingPunctuation(token: string): {
   trailing: string
 } {
   let trailing = ''
-  while (token.endsWith(',') || token.endsWith(';')) {
-    trailing = token.at(-1) + trailing
-    token = token.slice(0, -1)
+  const separatorSuffix = token.match(/[,;]+$/)?.[0] ?? ''
+  if (separatorSuffix) {
+    trailing = separatorSuffix
+    token = token.slice(0, -separatorSuffix.length)
   }
-  while (
-    (token.endsWith(')') &&
-      token.split(')').length > token.split('(').length) ||
-    (token.endsWith(']') && token.split(']').length > token.split('[').length)
-  ) {
-    trailing = token.at(-1) + trailing
-    token = token.slice(0, -1)
+  const bracketSuffix = token.match(/[)\]]+$/)?.[0] ?? ''
+  if (bracketSuffix) {
+    const peelCount = countExcessClosingBrackets(token, bracketSuffix)
+    if (peelCount) {
+      trailing = token.slice(-peelCount) + trailing
+      token = token.slice(0, -peelCount)
+    }
   }
   return { core: token, trailing }
 }
 
-export function redactTelemetryValues(
-  values: Record<string, unknown> | undefined
-): Record<string, unknown> | undefined {
+function countExcessClosingBrackets(token: string, suffix: string): number {
+  let excessParens = countCharacter(token, ')') - countCharacter(token, '(')
+  let excessBrackets = countCharacter(token, ']') - countCharacter(token, '[')
+  let count = 0
+  for (let index = suffix.length - 1; index >= 0; index--) {
+    const bracket = suffix[index]
+    if (bracket === ')' && excessParens > 0) excessParens--
+    else if (bracket === ']' && excessBrackets > 0) excessBrackets--
+    else break
+    count++
+  }
+  return count
+}
+
+function countCharacter(value: string, character: string): number {
+  let count = 0
+  for (const current of value) if (current === character) count++
+  return count
+}
+
+export function redactTelemetryValues<T extends Record<string, unknown>>(
+  values: T | undefined
+): T | undefined {
   if (!values) return values
   return redactValue(values, {
     ancestors: new WeakSet<object>(),
     memo: new WeakMap<object, unknown>()
-  }) as Record<string, unknown>
+  }) as T
 }
 
 interface RedactionContext {

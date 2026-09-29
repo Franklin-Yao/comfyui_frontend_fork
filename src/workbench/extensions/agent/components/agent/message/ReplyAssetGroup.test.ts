@@ -367,9 +367,9 @@ describe('ReplyAssetGroup', () => {
         expect(generateModelThumbnail).toHaveBeenCalledOnce()
       )
 
-      await vi.advanceTimersByTimeAsync(62_000)
+      await vi.advanceTimersByTimeAsync(991_000)
 
-      expect(generateModelThumbnail).toHaveBeenCalledTimes(6)
+      expect(generateModelThumbnail).toHaveBeenCalledTimes(10)
       expect(findServerPreviewUrl).toHaveBeenCalledOnce()
       expect(vi.getTimerCount()).toBe(0)
     } finally {

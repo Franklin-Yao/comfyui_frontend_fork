@@ -101,8 +101,8 @@ type ThumbnailState =
 /** Retries after the initial render attempt. */
 const MAX_THUMBNAIL_RETRIES = 2
 const THUMBNAIL_RETRY_DELAY_MS = 2000
-const MAX_THUMBNAIL_BUSY_RETRIES = 5
-const MAX_THUMBNAIL_BUSY_DELAY_MS = 30_000
+const MAX_THUMBNAIL_BUSY_RETRIES = 9
+const MAX_THUMBNAIL_BUSY_DELAY_MS = 8 * 60_000
 
 const thumbnailState = ref<Record<string, ThumbnailState>>({})
 const assetNames = ref<Record<string, string>>({})

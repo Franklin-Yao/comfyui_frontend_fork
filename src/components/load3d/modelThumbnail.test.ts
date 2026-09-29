@@ -149,7 +149,7 @@ describe('generateModelThumbnail', () => {
       controller.abort()
       await vi.advanceTimersByTimeAsync(15_000)
 
-      await expect(blockedRun).resolves.toEqual({ status: 'failed' })
+      await expect(blockedRun).resolves.toEqual({ status: 'timedOut' })
       await expect(skippedRun).resolves.toEqual({ status: 'cancelled' })
       expect(createLoad3d).toHaveBeenCalledTimes(1)
     } finally {
@@ -298,12 +298,13 @@ describe('generateModelThumbnail', () => {
 
       await vi.advanceTimersByTimeAsync(15_000)
 
-      await expect(stuckRun).resolves.toEqual({ status: 'failed' })
+      await expect(stuckRun).resolves.toEqual({ status: 'timedOut' })
       await expect(nextRun).resolves.toEqual({
         status: 'rendered',
         dataUrl: 'data:image/png;base64,thumb'
       })
       expect(stuck.remove).toHaveBeenCalledTimes(1)
+      expect(reportError).not.toHaveBeenCalled()
       expect(next.loadModel).toHaveBeenCalledWith('/next.glb', undefined, {
         silent: true
       })
@@ -327,12 +328,13 @@ describe('generateModelThumbnail', () => {
 
       await vi.advanceTimersByTimeAsync(15_000)
 
-      await expect(stuckRun).resolves.toEqual({ status: 'failed' })
+      await expect(stuckRun).resolves.toEqual({ status: 'timedOut' })
       await expect(nextRun).resolves.toEqual({
         status: 'rendered',
         dataUrl: 'data:image/png;base64,thumb'
       })
       expect(stuck.remove).toHaveBeenCalledOnce()
+      expect(reportError).not.toHaveBeenCalled()
       expect(next.captureThumbnail).toHaveBeenCalledOnce()
     } finally {
       vi.useRealTimers()

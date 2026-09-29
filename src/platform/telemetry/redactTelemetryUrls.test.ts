@@ -71,6 +71,15 @@ describe('redactTelemetryUrls', () => {
       )
     ).toBe('request api/view and assets/a.glb')
   })
+
+  it('peels long punctuation suffixes without changing the URL payload', () => {
+    const trailing = ')'.repeat(1_000)
+    expect(
+      redactTelemetryUrls(
+        `https://user:secret@example.com/model.glb?token=private${trailing}`
+      )
+    ).toBe(`https://example.com/model.glb${trailing}`)
+  })
 })
 
 describe('redactTelemetryValues', () => {

@@ -34,7 +34,7 @@ it('installs the third-party error filter in the send sanitizer', () => {
   })
 })
 
-it('redacts URL secrets from breadcrumbs and spans', () => {
+it('redacts URL secrets from events, breadcrumbs, and spans', () => {
   initSentry({
     app: createApp({}),
     dsn: 'https://public@example.invalid/1',
@@ -56,27 +56,54 @@ it('redacts URL secrets from breadcrumbs and spans', () => {
   expect(
     options?.beforeSend?.(
       fromPartial({
+        extra: { source: secretUrl },
+        contexts: { model: { source: secretUrl } },
+        request: { url: secretUrl },
         exception: {
-          values: [{ value: `failed ${secretUrl}` }]
+          values: [
+            {
+              value: `failed ${secretUrl}`,
+              stacktrace: {
+                frames: [{ filename: secretUrl, abs_path: secretUrl }]
+              }
+            }
+          ]
         }
       }),
       {}
     )
   ).toMatchObject({
+    extra: { source: 'https://example.com/model.glb' },
+    contexts: { model: { source: 'https://example.com/model.glb' } },
+    request: { url: 'https://example.com/model.glb' },
     exception: {
-      values: [{ value: 'failed https://example.com/model.glb' }]
+      values: [
+        {
+          value: 'failed https://example.com/model.glb',
+          stacktrace: {
+            frames: [
+              {
+                filename: 'https://example.com/model.glb',
+                abs_path: 'https://example.com/model.glb'
+              }
+            ]
+          }
+        }
+      ]
     }
   })
   expect(
-    options?.beforeSendSpan?.({
-      data: { url: secretUrl },
-      description: `GET ${secretUrl}`,
-      span_id: '1234567890abcdef',
-      start_timestamp: 1,
-      trace_id: '1234567890abcdef1234567890abcdef'
-    })
+    options?.beforeSendSpan?.(
+      fromPartial({
+        data: { nested: { url: secretUrl } } as never,
+        description: `GET ${secretUrl}`,
+        span_id: '1234567890abcdef',
+        start_timestamp: 1,
+        trace_id: '1234567890abcdef1234567890abcdef'
+      })
+    )
   ).toMatchObject({
     description: 'GET https://example.com/model.glb',
-    data: { url: 'https://example.com/model.glb' }
+    data: { nested: { url: 'https://example.com/model.glb' } }
   })
 })

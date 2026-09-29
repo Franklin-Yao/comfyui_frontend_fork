@@ -94,6 +94,30 @@ describe('rumBeforeSend', () => {
     expect(event.error.stack).toBe('at load (https://example.com/model.glb)')
   })
 
+  it('redacts URL secrets from causes, resources, and event context', () => {
+    const secretUrl = 'https://user:secret@example.com/model.glb?token=private'
+    const event = fromPartial<RumErrorEvent>({
+      type: 'error',
+      error: {
+        message: 'failed',
+        source: 'source',
+        causes: [{ message: `cause ${secretUrl}`, stack: `at ${secretUrl}` }],
+        resource: { url: secretUrl }
+      },
+      context: { model: { source: secretUrl } }
+    })
+
+    expect(rumBeforeSend(event, fromPartial({}))).toBe(true)
+    expect(event.error.causes?.[0]).toMatchObject({
+      message: 'cause https://example.com/model.glb',
+      stack: 'at https://example.com/model.glb'
+    })
+    expect(event.error.resource?.url).toBe('https://example.com/model.glb')
+    expect(event.context?.model).toEqual({
+      source: 'https://example.com/model.glb'
+    })
+  })
+
   it('keeps the console copy while no reporter exists to replace it', () => {
     setAssertReporter(null)
     const event = createErrorEvent(
