@@ -1,33 +1,42 @@
 /** Remove credentials, query strings, and fragments from URL-shaped text. */
 export function redactTelemetryUrls(text: string): string {
-  return text.replace(
-    /(?:https?:)?\/\/(?:(?![,;](?=(?:https?:)?\/\/))[^\s"'<>])+|\/[A-Za-z0-9._~%-](?:(?![,;](?=(?:https?:)?\/\/))[^\s"'<>])*/g,
-    (token) => {
-      let trailing = ''
-      while (token.endsWith(',') || token.endsWith(';')) {
-        trailing = token.at(-1) + trailing
-        token = token.slice(0, -1)
-      }
-      while (
-        (token.endsWith(')') &&
-          token.split(')').length > token.split('(').length) ||
-        (token.endsWith(']') &&
-          token.split(']').length > token.split('[').length)
-      ) {
-        trailing = token.at(-1) + trailing
-        token = token.slice(0, -1)
-      }
-      const stackSuffix = token.match(/:\d+:\d+$/)?.[0] ?? ''
-      const url = stackSuffix ? token.slice(0, -stackSuffix.length) : token
-      const clean = url.split(/[?#]/, 1)[0]
-      const absolute = clean.match(/^((?:https?:)?\/\/)([^/]*)(.*)$/)
-      if (!absolute) return `${clean}${stackSuffix}${trailing}`
+  return text.replace(URL_TOKEN_PATTERN, redactUrlToken)
+}
 
-      const [, prefix, authority, path] = absolute
-      const userInfoEnd = authority.lastIndexOf('@')
-      return `${prefix}${authority.slice(userInfoEnd + 1)}${path}${stackSuffix}${trailing}`
-    }
-  )
+const URL_TOKEN_PATTERN =
+  /(?:https?:)?\/\/(?:(?![,;](?=(?:https?:)?\/\/))[^\s"'<>])+|\/[A-Za-z0-9._~%-](?:(?![,;](?=(?:https?:)?\/\/))[^\s"'<>])*/g
+
+function redactUrlToken(token: string): string {
+  const { core, trailing } = peelTrailingPunctuation(token)
+  const stackSuffix = core.match(/:\d+:\d+$/)?.[0] ?? ''
+  const url = stackSuffix ? core.slice(0, -stackSuffix.length) : core
+  const clean = url.split(/[?#]/, 1)[0]
+  const absolute = clean.match(/^((?:https?:)?\/\/)([^/]*)(.*)$/)
+  if (!absolute) return `${clean}${stackSuffix}${trailing}`
+
+  const [, prefix, authority, path] = absolute
+  const userInfoEnd = authority.lastIndexOf('@')
+  return `${prefix}${authority.slice(userInfoEnd + 1)}${path}${stackSuffix}${trailing}`
+}
+
+function peelTrailingPunctuation(token: string): {
+  core: string
+  trailing: string
+} {
+  let trailing = ''
+  while (token.endsWith(',') || token.endsWith(';')) {
+    trailing = token.at(-1) + trailing
+    token = token.slice(0, -1)
+  }
+  while (
+    (token.endsWith(')') &&
+      token.split(')').length > token.split('(').length) ||
+    (token.endsWith(']') && token.split(']').length > token.split('[').length)
+  ) {
+    trailing = token.at(-1) + trailing
+    token = token.slice(0, -1)
+  }
+  return { core: token, trailing }
 }
 
 export function redactTelemetryValues(
