@@ -6,7 +6,7 @@ export function redactTelemetryUrls(text: string): string {
       const stackSuffix = token.match(/:\d+:\d+$/)?.[0] ?? ''
       const url = stackSuffix ? token.slice(0, -stackSuffix.length) : token
       const clean = url.split(/[?#]/, 1)[0]
-    const absolute = clean.match(/^((?:https?:)?\/\/)([^/]*)(.*)$/)
+      const absolute = clean.match(/^((?:https?:)?\/\/)([^/]*)(.*)$/)
       if (!absolute) return `${clean}${stackSuffix}`
 
       const [, prefix, authority, path] = absolute

@@ -67,23 +67,20 @@ export function generateModelThumbnail(
   }
 
   queuedRenderCount++
-  const run = queue.then(
-    async (): Promise<ModelThumbnailResult> => {
-      if (callerSignal?.aborted) return { status: 'cancelled' }
-      try {
-        const { acquireSharedRenderer } = await import(
-          '@/renderer/three/sharedWebGLRenderer'
-        )
-        rendererKeepAlive ??= acquireSharedRenderer()
-      } catch (error) {
-        reportError(redactedCopy(error), {
-          errorType: 'agent_model_thumbnail_generation_failure'
-        })
-        return { status: 'failed' }
-      }
-      return renderThumbnailWithTimeout(modelUrl, assetName, callerSignal)
+  const run = queue.then(async (): Promise<ModelThumbnailResult> => {
+    if (callerSignal?.aborted) return { status: 'cancelled' }
+    try {
+      const { acquireSharedRenderer } =
+        await import('@/renderer/three/sharedWebGLRenderer')
+      rendererKeepAlive ??= acquireSharedRenderer()
+    } catch (error) {
+      reportError(redactedCopy(error), {
+        errorType: 'agent_model_thumbnail_generation_failure'
+      })
+      return { status: 'failed' }
     }
-  )
+    return renderThumbnailWithTimeout(modelUrl, assetName, callerSignal)
+  })
   queue = run.catch(() => null)
   return run.finally(() => {
     queuedRenderCount--

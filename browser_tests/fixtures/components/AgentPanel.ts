@@ -110,7 +110,12 @@ export class AgentPanel {
       return route.fulfill(
         jsonRoute({
           assets: [
-            { id: `asset-${name}`, name, hash: name, preview_id: `preview-${name}` }
+            {
+              id: `asset-${name}`,
+              name,
+              hash: name,
+              preview_id: `preview-${name}`
+            }
           ]
         })
       )

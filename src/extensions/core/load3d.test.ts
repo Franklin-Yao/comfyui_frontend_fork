@@ -614,9 +614,9 @@ describe('Comfy.Load3D.getCustomWidgets LOAD_3D', () => {
     await modelInput.onchange!(new Event('change'))
     await flush()
 
-    expect(node.widgets?.find((widget) => widget.name === 'model_file')?.value).toBe(
-      ''
-    )
+    expect(
+      node.widgets?.find((widget) => widget.name === 'model_file')?.value
+    ).toBe('')
   })
 
   it('skips upload and clear buttons when the node has no model_file widget (e.g. Preview3DAdvanced)', async () => {

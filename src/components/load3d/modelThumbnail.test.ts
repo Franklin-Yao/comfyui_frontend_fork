@@ -5,10 +5,7 @@ import type * as THREE from 'three'
 import type Load3d from '@/extensions/core/load3d/Load3d'
 import { generateModelThumbnail } from './modelThumbnail'
 
-type ThumbnailLoad3d = Pick<
-  Load3d,
-  'loadModel' | 'captureThumbnail' | 'remove'
->
+type ThumbnailLoad3d = Pick<Load3d, 'loadModel' | 'captureThumbnail' | 'remove'>
 
 const isAssetPreviewSupported = vi.hoisted(() => vi.fn(() => false))
 const persistThumbnail = vi.hoisted(() =>
