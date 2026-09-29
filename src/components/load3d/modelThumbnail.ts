@@ -39,6 +39,7 @@ function redactedCopy(error: unknown): Error {
 export type ModelThumbnailResult =
   | { status: 'rendered'; dataUrl: string }
   | { status: 'cancelled' }
+  | { status: 'busy' }
   | { status: 'failed' }
 
 /**
@@ -57,8 +58,11 @@ export function generateModelThumbnail(
   assetName: string,
   callerSignal?: AbortSignal
 ): Promise<ModelThumbnailResult> {
-  if (callerSignal?.aborted || queuedRenderCount >= MAX_QUEUED_RENDERS) {
+  if (callerSignal?.aborted) {
     return Promise.resolve({ status: 'cancelled' })
+  }
+  if (queuedRenderCount >= MAX_QUEUED_RENDERS) {
+    return Promise.resolve({ status: 'busy' })
   }
 
   queuedRenderCount++

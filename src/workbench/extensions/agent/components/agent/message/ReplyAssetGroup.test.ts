@@ -308,6 +308,33 @@ describe('ReplyAssetGroup', () => {
     expect(screen.queryByRole('img', { name: 'mesh.glb' })).toBeNull()
   })
 
+  it('retries a model deferred by queue backpressure', async () => {
+    isAssetPreviewSupported.mockReturnValue(true)
+    generateModelThumbnail
+      .mockResolvedValueOnce({ status: 'busy' })
+      .mockResolvedValueOnce({
+        status: 'rendered',
+        dataUrl: 'data:image/png;base64,retried'
+      })
+    vi.useFakeTimers()
+    try {
+      renderGroup([model])
+      await vi.waitFor(() =>
+        expect(generateModelThumbnail).toHaveBeenCalledOnce()
+      )
+
+      await vi.advanceTimersByTimeAsync(2_000)
+
+      expect(generateModelThumbnail).toHaveBeenCalledTimes(2)
+      expect(screen.getByRole('img', { name: 'mesh.glb' })).toHaveAttribute(
+        'src',
+        'data:image/png;base64,retried'
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('bounds retries to exactly the initial attempt plus MAX_THUMBNAIL_RETRIES', async () => {
     // Regression coverage for a bug where every retry rescheduled with
     // attempts=0 instead of the incremented count, so a persistently

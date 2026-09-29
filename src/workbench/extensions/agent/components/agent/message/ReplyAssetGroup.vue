@@ -141,7 +141,7 @@ function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
     if (!mounted || !owns(url, controller)) return
     if (result.status === 'rendered') {
       thumbnailState.value[url] = { phase: 'ready', src: result.dataUrl }
-    } else if (result.status === 'failed') {
+    } else if (result.status === 'failed' || result.status === 'busy') {
       scheduleThumbnailRetry(url, filename, attempts)
     } else {
       thumbnailState.value[url] = { phase: 'gaveUp' }
