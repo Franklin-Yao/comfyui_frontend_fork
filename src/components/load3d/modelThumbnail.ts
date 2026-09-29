@@ -6,7 +6,6 @@ import {
 } from '@/platform/assets/utils/assetPreviewUtil'
 import { reportError } from '@/platform/telemetry/reportError'
 import { redactTelemetryUrls } from '@/platform/telemetry/redactTelemetryUrls'
-import { acquireSharedRenderer } from '@/renderer/three/sharedWebGLRenderer'
 import type { SharedRendererHandle } from '@/renderer/three/sharedWebGLRenderer'
 
 let queue: Promise<unknown> = Promise.resolve()
@@ -62,13 +61,16 @@ export function generateModelThumbnail(
     return Promise.resolve({ status: 'cancelled' })
   }
 
-  rendererKeepAlive ??= acquireSharedRenderer()
   queuedRenderCount++
   const run = queue.then(
-    (): ModelThumbnailResult | Promise<ModelThumbnailResult> =>
-      callerSignal?.aborted
-        ? { status: 'cancelled' }
-        : renderThumbnailWithTimeout(modelUrl, assetName, callerSignal)
+    async (): Promise<ModelThumbnailResult> => {
+      if (callerSignal?.aborted) return { status: 'cancelled' }
+      const { acquireSharedRenderer } = await import(
+        '@/renderer/three/sharedWebGLRenderer'
+      )
+      rendererKeepAlive ??= acquireSharedRenderer()
+      return renderThumbnailWithTimeout(modelUrl, assetName, callerSignal)
+    }
   )
   queue = run.catch(() => null)
   return run.finally(() => {
