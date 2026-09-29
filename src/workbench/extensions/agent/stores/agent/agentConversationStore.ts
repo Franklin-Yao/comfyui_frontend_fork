@@ -42,19 +42,128 @@ export interface LiveTurn {
   messageId: TurnId
 }
 
-function finishWithPersistedText(
-  message: AssistantMessage,
-  persistedText: string | undefined
+interface AnchoredLocalPart {
+  part: AssistantMessage['parts'][number]
+  toolCount: number
+  textOffset: number
+}
+
+function anchorLocalParts(
+  parts: AssistantMessage['parts']
+): AnchoredLocalPart[] {
+  const localParts: AnchoredLocalPart[] = []
+  let toolCount = 0
+  let textOffset = 0
+  for (const part of parts) {
+    if (part.type === 'text') {
+      textOffset += part.text.length
+      continue
+    }
+    if (part.type === 'tool') {
+      toolCount += 1
+      textOffset = 0
+      continue
+    }
+    if (part.type === 'runApproval') continue
+    localParts.push({ part, toolCount, textOffset })
+  }
+  return localParts
+}
+
+function textSplitAt(
+  part: Extract<AssistantMessage['parts'][number], { type: 'text' }>,
+  toolCount: number,
+  textOffset: number,
+  anchor: AnchoredLocalPart
+): number | undefined {
+  if (toolCount !== anchor.toolCount) return undefined
+  const splitAt = anchor.textOffset - textOffset
+  return splitAt >= 0 && splitAt <= part.text.length ? splitAt : undefined
+}
+
+function replaceTextWithLocalPart(
+  parts: AssistantMessage['parts'],
+  index: number,
+  part: Extract<AssistantMessage['parts'][number], { type: 'text' }>,
+  localPart: AssistantMessage['parts'][number],
+  splitAt: number
 ): void {
-  const kept = message.parts.filter((part) => part.type !== 'runApproval')
-  if (persistedText === undefined || persistedText === '') {
-    message.parts = kept
+  const before = { ...part, text: part.text.slice(0, splitAt) }
+  const after = { ...part, text: part.text.slice(splitAt) }
+  parts.splice(
+    index,
+    1,
+    ...(before.text ? [before] : []),
+    localPart,
+    ...(after.text ? [after] : [])
+  )
+}
+
+function insertAnchoredLocalPart(
+  parts: AssistantMessage['parts'],
+  anchor: AnchoredLocalPart
+): void {
+  let toolCount = 0
+  let textOffset = 0
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index]
+    if (part.type === 'tool') {
+      const atAnchor =
+        toolCount === anchor.toolCount && textOffset === anchor.textOffset
+      if (atAnchor) {
+        parts.splice(index, 0, anchor.part)
+        return
+      }
+      toolCount += 1
+      textOffset = 0
+      continue
+    }
+    if (part.type !== 'text') continue
+    const splitAt = textSplitAt(part, toolCount, textOffset, anchor)
+    if (splitAt === undefined) {
+      textOffset += part.text.length
+      continue
+    }
+    replaceTextWithLocalPart(parts, index, part, anchor.part, splitAt)
     return
   }
-  message.parts = [
-    ...kept.filter((part) => part.type !== 'text'),
-    { type: 'text', text: persistedText, state: 'done' }
-  ]
+  parts.push(anchor.part)
+}
+
+function interleaveLocalParts(
+  persistedParts: AssistantMessage['parts'],
+  localParts: AnchoredLocalPart[]
+): AssistantMessage['parts'] {
+  const mergedParts = [...persistedParts]
+  let groupStart = 0
+  while (groupStart < localParts.length) {
+    const first = localParts[groupStart]
+    let groupEnd = groupStart + 1
+    while (
+      groupEnd < localParts.length &&
+      localParts[groupEnd].toolCount === first.toolCount &&
+      localParts[groupEnd].textOffset === first.textOffset
+    )
+      groupEnd += 1
+    for (let index = groupEnd - 1; index >= groupStart; index -= 1)
+      insertAnchoredLocalPart(mergedParts, localParts[index])
+    groupStart = groupEnd
+  }
+  return mergedParts
+}
+
+function finishWithPersistedParts(
+  message: AssistantMessage,
+  persistedParts: AssistantMessage['parts'] | undefined
+): void {
+  if (persistedParts === undefined) {
+    message.parts = message.parts.filter((part) => part.type !== 'runApproval')
+    return
+  }
+  message.parts = interleaveLocalParts(
+    persistedParts,
+    anchorLocalParts(message.parts)
+  )
 }
 
 export const useAgentConversationStore = defineStore(
@@ -361,7 +470,6 @@ export const useAgentConversationStore = defineStore(
         (message) => message.id === hydratedTurnIds.get(entry.messageId)
       )
       if (persisted && !persisted.streaming) {
-        entry.transport.settle()
         entry.transport.dispose()
         return
       }
@@ -445,19 +553,19 @@ export const useAgentConversationStore = defineStore(
 
     function settleTurn(
       turn: LiveTurn,
-      persistedText: string | undefined
+      persistedParts: AssistantMessage['parts'] | undefined
     ): void {
       const isActive =
         turn.threadId === threadId.value &&
         turn.messageId === activeTurnId.value
       if (isActive && transport && liveMessage) {
-        finishWithPersistedText(liveMessage, persistedText)
+        finishWithPersistedParts(liveMessage, persistedParts)
         abortActiveTurn()
         return
       }
       const entry = backgroundTurns.get(turn.threadId)
       if (!entry || entry.messageId !== turn.messageId || entry.settled) return
-      finishWithPersistedText(entry.message, persistedText)
+      finishWithPersistedParts(entry.message, persistedParts)
       entry.transport.settle()
       entry.settled = true
     }

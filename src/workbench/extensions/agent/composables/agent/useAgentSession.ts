@@ -37,6 +37,8 @@ import type {
   OpenTabsSnapshot,
   PostMessageInput
 } from '../../services/agent/agentRestClient'
+import type { AssistantMessage } from '../../services/agent/agentMessageParts'
+import { normalizeAgentTranscript } from '../../services/agent/agentTranscript'
 import type { LiveTurn } from '../../stores/agent/agentConversationStore'
 import { useAgentConversationStore } from '../../stores/agent/agentConversationStore'
 import { useAgentWorkflowTabBindingStore } from '../../stores/agent/agentWorkflowTabBindingStore'
@@ -145,14 +147,41 @@ const TURN_RECOVERY_REQUEST_TIMEOUT_MS = 60_000
 const TURN_RECOVERY_MAX_CONSECUTIVE_FAILURES = TURN_RECOVERY_DELAYS_MS.length
 
 type TurnOutcome =
-  | { kind: 'terminal'; text: string }
+  | { kind: 'terminal'; parts: AssistantMessage['parts'] }
   | { kind: 'thread-missing' }
-  | { kind: 'message-missing' }
   | {
       kind: 'streaming'
       pendingAsk?: NonNullable<AgentMessages[number]['pending_ask']>
     }
   | { kind: 'error'; message: string }
+
+function isTerminalTurnStatus(
+  status: AgentMessages[number]['status']
+): boolean {
+  switch (status) {
+    case 'complete':
+    case 'error':
+    case 'interrupted':
+      return true
+    case 'streaming':
+      return false
+  }
+}
+
+function mergeAdjacentTextParts(
+  parts: AssistantMessage['parts']
+): AssistantMessage['parts'] {
+  const merged: AssistantMessage['parts'] = []
+  for (const part of parts) {
+    const previous = merged.at(-1)
+    if (part.type === 'text' && previous?.type === 'text') {
+      previous.text += part.text
+      continue
+    }
+    merged.push(part)
+  }
+  return merged
+}
 
 /**
  * The status source reports its current state synchronously on subscribe
@@ -377,6 +406,7 @@ export function useAgentSession(deps: AgentSessionDeps) {
     unsubscribe = null
     unsubscribeStatus = null
     for (const recovery of recoveringTurns.values()) recovery.abort()
+    recoveringTurns.clear()
     const stoppedGeneration = ownedGeneration
     queueMicrotask(() => {
       if (stoppedGeneration !== sessionGeneration) return
@@ -936,7 +966,7 @@ export function useAgentSession(deps: AgentSessionDeps) {
 
   function onStatus(live: boolean): void {
     if (!live) {
-      if (connection === 'live') connection = 'dropped'
+      connection = 'dropped'
       return
     }
     const reconnected = connection === 'dropped'
@@ -979,28 +1009,38 @@ export function useAgentSession(deps: AgentSessionDeps) {
     generation: number,
     signal: AbortSignal
   ): Promise<void> {
-    let noticed = false
-    let consecutiveFailures = 0
+    let consecutiveErrors = 0
+    let consecutiveThreadMissing = 0
     for (let attempt = 0; ; attempt++) {
       await delay(delaysMs[Math.min(attempt, delaysMs.length - 1)], { signal })
       if (!isTurnLive(turn, generation)) return
       const outcome = await fetchTurnOutcome(turn, signal)
       if (!isTurnLive(turn, generation)) return
+      consecutiveThreadMissing = nextThreadMissingCount(
+        outcome,
+        consecutiveThreadMissing
+      )
+      if (isUnconfirmedThreadMissing(outcome, consecutiveThreadMissing))
+        continue
       if (settleFinishedTurn(turn, outcome)) return
       restorePendingAsk(turn, outcome)
-      noticed = noticeFirstError(outcome, noticed)
-      consecutiveFailures =
-        outcome.kind === 'streaming' ? 0 : consecutiveFailures + 1
-      if (consecutiveFailures < TURN_RECOVERY_MAX_CONSECUTIVE_FAILURES) continue
-      // Out of budget. No row for the turn means the server has nothing left to
-      // deliver, so settle with the text we already have; a run of failed checks
-      // says nothing about the turn, so leave it live for the socket.
-      if (outcome.kind === 'message-missing') {
-        conversationStore.settleTurn(turn, undefined)
-        markStoppedTurnReady(turn)
-      }
-      return
+      consecutiveErrors = outcome.kind === 'error' ? consecutiveErrors + 1 : 0
+      if (consecutiveErrors >= TURN_RECOVERY_MAX_CONSECUTIVE_FAILURES) return
     }
+  }
+
+  function nextThreadMissingCount(
+    outcome: TurnOutcome,
+    currentCount: number
+  ): number {
+    return outcome.kind === 'thread-missing' ? currentCount + 1 : 0
+  }
+
+  function isUnconfirmedThreadMissing(
+    outcome: TurnOutcome,
+    consecutiveThreadMissing: number
+  ): boolean {
+    return outcome.kind === 'thread-missing' && consecutiveThreadMissing < 2
   }
 
   function restorePendingAsk(turn: LiveTurn, outcome: TurnOutcome): void {
@@ -1009,16 +1049,6 @@ export function useAgentSession(deps: AgentSessionDeps) {
       type: 'agent_ask',
       data: { ...outcome.pendingAsk, thread_id: turn.threadId }
     })
-  }
-
-  /**
-   * One notice per recovery job: a job that keeps failing would otherwise stack
-   * the same message once per attempt.
-   */
-  function noticeFirstError(outcome: TurnOutcome, noticed: boolean): boolean {
-    if (noticed || outcome.kind !== 'error') return noticed
-    pushError(outcome.message)
-    return true
   }
 
   function isTurnLive(turn: LiveTurn, generation: number): boolean {
@@ -1036,13 +1066,12 @@ export function useAgentSession(deps: AgentSessionDeps) {
   function settleFinishedTurn(turn: LiveTurn, outcome: TurnOutcome): boolean {
     switch (outcome.kind) {
       case 'terminal':
-        conversationStore.settleTurn(turn, outcome.text)
+        conversationStore.settleTurn(turn, outcome.parts)
         markStoppedTurnReady(turn)
         return true
       case 'thread-missing':
         forgetDeletedThread(turn)
         return true
-      case 'message-missing':
       case 'streaming':
       case 'error':
         return false
@@ -1082,12 +1111,25 @@ export function useAgentSession(deps: AgentSessionDeps) {
       const history = await rest.getMessages(turn.threadId, {
         signal: AbortSignal.any([signal, request.signal])
       })
-      const row = history.find((entry) => entry.id === turn.messageId)
-      if (!row) return { kind: 'message-missing' }
-      if (row.status === 'streaming')
-        return { kind: 'streaming', pendingAsk: row.pending_ask }
-      const text = typeof row.content?.text === 'string' ? row.content.text : ''
-      return { kind: 'terminal', text }
+      const anchor = history.find(
+        (entry) => entry.role === 'assistant' && entry.id === turn.messageId
+      )
+      if (!anchor) return { kind: 'streaming' }
+      const rows = history
+        .filter(
+          (entry) =>
+            entry.role === 'assistant' && entry.turn_id === anchor.turn_id
+        )
+        .sort((a, b) => a.seq - b.seq)
+      if (rows.some((row) => !isTerminalTurnStatus(row.status)))
+        return {
+          kind: 'streaming',
+          pendingAsk: rows.find((row) => row.pending_ask)?.pending_ask
+        }
+      const parts = mergeAdjacentTextParts(
+        normalizeAgentTranscript(rows).messages[0]?.parts ?? []
+      )
+      return { kind: 'terminal', parts }
     } catch (error) {
       if (signal.aborted) throw error
       return turnOutcomeFromError(error)
@@ -1097,9 +1139,11 @@ export function useAgentSession(deps: AgentSessionDeps) {
   }
 
   function forgetDeletedThread(turn: LiveTurn): void {
-    conversationStore.settleTurn(turn, undefined)
-    if (conversationStore.threadId !== turn.threadId) return
-    conversationStore.setThreadId(null)
+    if (conversationStore.threadId !== turn.threadId) {
+      conversationStore.settleTurn(turn, undefined)
+      return
+    }
+    conversationStore.reset()
     boundWorkflowId.value = null
     rememberedWorkflowId = null
     localStorage.removeItem(threadStorageKey)

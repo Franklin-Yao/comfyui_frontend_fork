@@ -372,7 +372,7 @@ describe('useAgentConversationStore', () => {
 
     store.hydrate([
       historyRow(1, 'user', 't1', 'go'),
-      historyRow(2, 'assistant', 't1', 'authoritative reply')
+      historyRow(2, 'assistant', 't1', 'authoritative reply', 't1')
     ])
 
     vi.advanceTimersByTime(30_000)
@@ -937,8 +937,15 @@ describe('useAgentConversationStore', () => {
       store.recordUser(T1, 'front prompt')
       store.ingest(delta('t1', 'front partial'))
 
-      store.settleTurn(settled, 'persisted final')
-      store.settleTurn(settled, 'persisted final')
+      const persistedParts = [
+        {
+          type: 'text' as const,
+          text: 'persisted final',
+          state: 'done' as const
+        }
+      ]
+      store.settleTurn(settled, persistedParts)
+      store.settleTurn(settled, persistedParts)
 
       expect(store.liveTurns()).toEqual(stillLive)
       store.setThreadId(settled.threadId)
@@ -953,6 +960,75 @@ describe('useAgentConversationStore', () => {
       ).toHaveLength(1)
     }
   )
+
+  it('keeps a local tab link between persisted text and tool parts', () => {
+    const store = useAgentConversationStore()
+    store.setThreadId('th')
+    store.startTurn(T1)
+    store.ingest(delta('t1', 'before'))
+    store.ingest(activeTab('wf-1', 't1'))
+    store.ingest(toolCall('t1', 'add_node', 'running'))
+    store.ingest(delta('t1', 'after'))
+
+    store.settleTurn({ threadId: 'th', messageId: T1 }, [
+      { type: 'text', text: 'before', state: 'done' },
+      {
+        type: 'tool',
+        callId: 'call-add_node',
+        name: 'add_node',
+        state: 'done',
+        ok: true
+      },
+      { type: 'text', text: 'after', state: 'done' }
+    ])
+
+    expect(store.messages[0].parts.map((part) => part.type)).toEqual([
+      'text',
+      'tabLink',
+      'tool',
+      'text'
+    ])
+  })
+
+  it('splits persisted text around a local tab link when there is no tool', () => {
+    const store = useAgentConversationStore()
+    store.setThreadId('th')
+    store.startTurn(T1)
+    store.ingest(delta('t1', 'before'))
+    store.ingest(activeTab('wf-1', 't1'))
+    store.ingest(delta('t1', 'after'))
+
+    store.settleTurn({ threadId: 'th', messageId: T1 }, [
+      { type: 'text', text: 'beforeafter', state: 'done' }
+    ])
+
+    expect(store.messages[0].parts).toMatchObject([
+      { type: 'text', text: 'before' },
+      { type: 'tabLink', workflowId: 'wf-1' },
+      { type: 'text', text: 'after' }
+    ])
+  })
+
+  it('keeps consecutive local tab links in order at one text boundary', () => {
+    const store = useAgentConversationStore()
+    store.setThreadId('th')
+    store.startTurn(T1)
+    store.ingest(delta('t1', 'before'))
+    store.ingest(activeTab('wf-1', 't1'))
+    store.ingest(activeTab('wf-2', 't1'))
+    store.ingest(delta('t1', 'after'))
+
+    store.settleTurn({ threadId: 'th', messageId: T1 }, [
+      { type: 'text', text: 'beforeafter', state: 'done' }
+    ])
+
+    expect(store.messages[0].parts).toMatchObject([
+      { type: 'text', text: 'before' },
+      { type: 'tabLink', workflowId: 'wf-1' },
+      { type: 'tabLink', workflowId: 'wf-2' },
+      { type: 'text', text: 'after' }
+    ])
+  })
 
   it('resolves existing paywalls without resurrecting them', () => {
     const store = useAgentConversationStore()
