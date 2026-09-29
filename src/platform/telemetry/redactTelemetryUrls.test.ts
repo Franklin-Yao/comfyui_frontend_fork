@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { redactTelemetryUrls } from './redactTelemetryUrls'
+import {
+  redactTelemetryUrls,
+  redactTelemetryValues
+} from './redactTelemetryUrls'
 
 describe('redactTelemetryUrls', () => {
   it('redacts query, fragment, and authority credentials', () => {
@@ -20,5 +23,23 @@ describe('redactTelemetryUrls', () => {
     expect(redactTelemetryUrls('/api/view?sig=SECRET&x=1?y=2')).toBe(
       '/api/view'
     )
+  })
+})
+
+describe('redactTelemetryValues', () => {
+  it('redacts URL credentials inside nested console arguments', () => {
+    expect(
+      redactTelemetryValues({
+        arguments: [
+          'Error loading model:',
+          { message: 'failed https://user:secret@example.com/a.glb?token=x' }
+        ]
+      })
+    ).toEqual({
+      arguments: [
+        'Error loading model:',
+        { message: 'failed https://example.com/a.glb' }
+      ]
+    })
   })
 })

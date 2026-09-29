@@ -15,10 +15,16 @@ export function redactTelemetryValues(
   values: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
   if (!values) return values
-  return Object.fromEntries(
-    Object.entries(values).map(([key, value]) => [
-      key,
-      typeof value === 'string' ? redactTelemetryUrls(value) : value
-    ])
-  )
+  const seen = new WeakSet<object>()
+  const redact = (value: unknown): unknown => {
+    if (typeof value === 'string') return redactTelemetryUrls(value)
+    if (typeof value !== 'object' || value === null) return value
+    if (seen.has(value)) return '[Circular]'
+    seen.add(value)
+    if (Array.isArray(value)) return value.map(redact)
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, redact(nested)])
+    )
+  }
+  return redact(values) as Record<string, unknown>
 }
