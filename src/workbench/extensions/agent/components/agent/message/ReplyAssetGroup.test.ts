@@ -386,6 +386,7 @@ describe('ReplyAssetGroup', () => {
       await vi.waitFor(() =>
         expect(generateModelThumbnail).toHaveBeenCalledOnce()
       )
+      await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1))
       await rerender({ assets: [audio] })
       await vi.advanceTimersByTimeAsync(60_000)
       expect(generateModelThumbnail).toHaveBeenCalledOnce()
@@ -395,6 +396,9 @@ describe('ReplyAssetGroup', () => {
         expect(generateModelThumbnail).toHaveBeenCalledTimes(2)
       )
       expect(findServerPreviewUrl).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(991_000)
+      expect(generateModelThumbnail).toHaveBeenCalledTimes(10)
+      expect(vi.getTimerCount()).toBe(0)
     } finally {
       vi.useRealTimers()
     }
@@ -409,6 +413,7 @@ describe('ReplyAssetGroup', () => {
       await vi.waitFor(() =>
         expect(generateModelThumbnail).toHaveBeenCalledOnce()
       )
+      await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1))
       unmount()
       await vi.advanceTimersByTimeAsync(60_000)
       expect(generateModelThumbnail).toHaveBeenCalledOnce()

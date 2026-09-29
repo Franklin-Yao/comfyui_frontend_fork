@@ -70,17 +70,6 @@ export function generateModelThumbnail(
   queuedRenderCount++
   const run = queue.then(async (): Promise<ModelThumbnailResult> => {
     if (callerSignal?.aborted) return { status: 'cancelled' }
-    try {
-      const { acquireSharedRenderer } =
-        await import('@/renderer/three/sharedWebGLRenderer')
-      if (callerSignal?.aborted) return { status: 'cancelled' }
-      rendererKeepAlive ??= acquireSharedRenderer()
-    } catch (error) {
-      reportError(redactedCopy(error), {
-        errorType: 'agent_model_thumbnail_generation_failure'
-      })
-      return { status: 'failed' }
-    }
     return renderThumbnailWithTimeout(modelUrl, assetName, callerSignal)
   })
   queue = run.catch(() => null)
@@ -103,7 +92,7 @@ async function renderThumbnailWithTimeout(
   const cancelError = new Error('Model thumbnail generation cancelled')
   let onCallerAbort: (() => void) | undefined
 
-  const renderPromise = renderThumbnail(
+  const renderPromise = renderThumbnailJob(
     modelUrl,
     assetName,
     abortController.signal
@@ -145,18 +134,20 @@ async function renderThumbnailWithTimeout(
   }
 }
 
-async function renderThumbnail(
+async function renderThumbnailJob(
   modelUrl: string,
   assetName: string,
   signal: AbortSignal
 ): Promise<string> {
-  // The deadline covers the whole render body, not just `loadModel`, because
-  // `queue` is module-global and serial: a stalled chunk fetch or a capture
-  // that never settles would otherwise block every later caller. Racing a
-  // timer rather than awaiting a wrapped body is what lets this promise
-  // settle while the unabortable transfer/parse runs on in the background.
   const deadline = new AbortController()
-  const onSignalAbort = () => deadline.abort()
+  let rejectCancelled!: (reason: Error) => void
+  const cancelled = new Promise<never>((_resolve, reject) => {
+    rejectCancelled = reject
+  })
+  const onSignalAbort = () => {
+    deadline.abort()
+    rejectCancelled(RENDER_CANCELLED)
+  }
   signal.addEventListener('abort', onSignalAbort, { once: true })
   let timer: ReturnType<typeof setTimeout> | undefined
   const timedOut = new Promise<never>((_resolve, reject) => {
@@ -165,15 +156,20 @@ async function renderThumbnail(
       reject(new TimeoutError())
     }, MODEL_LOAD_TIMEOUT_MS)
   })
+  const render = (async () => {
+    const { acquireSharedRenderer } =
+      await import('@/renderer/three/sharedWebGLRenderer')
+    deadline.signal.throwIfAborted()
+    rendererKeepAlive ??= acquireSharedRenderer()
+    return renderThumbnailInner(modelUrl, assetName, deadline.signal)
+  })()
   try {
-    return await Promise.race([
-      renderThumbnailInner(modelUrl, assetName, deadline.signal),
-      timedOut
-    ])
+    return await Promise.race([render, timedOut, cancelled])
   } finally {
     if (timer !== undefined) clearTimeout(timer)
     deadline.abort()
     signal.removeEventListener('abort', onSignalAbort)
+    render.catch(() => {})
   }
 }
 

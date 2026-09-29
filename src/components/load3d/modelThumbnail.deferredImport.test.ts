@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const rendererModule = vi.hoisted(() => {
-  let resolveImport: (() => void) | undefined
-  let resolveImportStarted: (() => void) | undefined
+  let resolveImport!: () => void
+  let resolveImportStarted!: () => void
   return {
     acquire: vi.fn(),
     importStarted: new Promise<void>((resolve) => {
@@ -11,15 +11,15 @@ const rendererModule = vi.hoisted(() => {
     importReady: new Promise<void>((resolve) => {
       resolveImport = resolve
     }),
-    markImportStarted: () => resolveImportStarted?.(),
-    resolveImport: () => resolveImport?.()
+    resolveImportStarted,
+    resolveImport
   }
 })
 
 const createLoad3d = vi.hoisted(() => vi.fn())
 
 vi.mock(import('@/renderer/three/sharedWebGLRenderer'), async () => {
-  rendererModule.markImportStarted()
+  rendererModule.resolveImportStarted()
   await rendererModule.importReady
   return { acquireSharedRenderer: rendererModule.acquire }
 })
@@ -45,20 +45,26 @@ describe('generateModelThumbnail deferred renderer import', () => {
     rendererModule.acquire.mockReset()
   })
 
-  it('cancels before rendering when aborted during renderer import', async () => {
+  it('cancels and advances the queue while renderer import stays unresolved', async () => {
+    vi.useFakeTimers()
     const controller = new AbortController()
-    const result = generateModelThumbnail(
+    const cancelled = generateModelThumbnail(
       '/deferred.glb',
       'deferred.glb',
       controller.signal
     )
+    const next = generateModelThumbnail('/next.glb', 'next.glb')
     await rendererModule.importStarted
 
     controller.abort()
-    rendererModule.resolveImport()
+    await vi.advanceTimersByTimeAsync(0)
 
-    await expect(result).resolves.toEqual({ status: 'cancelled' })
+    await expect(cancelled).resolves.toEqual({ status: 'cancelled' })
+    await vi.advanceTimersByTimeAsync(15_000)
+    await expect(next).resolves.toEqual({ status: 'timedOut' })
     expect(rendererModule.acquire).not.toHaveBeenCalled()
     expect(createLoad3d).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
   })
 })

@@ -73,9 +73,6 @@ const galleryItems = computed(() =>
 const galleryIndex = ref(-1)
 
 /**
- * One retained entry per model URL records its current lifecycle phase;
- * cancellation stops owned work without removing that entry.
- *
  * `controller` must be `markRaw`: a `ref` deep-proxies nested objects, so an
  * unwrapped `state.controller === controller` comparison would compare a
  * proxy against the raw controller and always be false, silently disowning
