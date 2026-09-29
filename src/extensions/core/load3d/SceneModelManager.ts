@@ -207,9 +207,18 @@ export class SceneModelManager implements ModelManagerInterface {
       if (obj.name === 'MainModel') oldMainModels.push(obj)
     })
     oldMainModels.forEach((oldModel) => {
+      this.restoreOriginalMaterials(oldModel)
       disposeObject3D(oldModel, this.preservedMaterials)
       this.disposeModelViaAdapter(oldModel)
       this.scene.remove(oldModel)
+    })
+  }
+
+  private restoreOriginalMaterials(model: THREE.Object3D): void {
+    model.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return
+      const original = this.originalMaterials.get(child)
+      if (original) child.material = original
     })
   }
 
@@ -350,6 +359,7 @@ export class SceneModelManager implements ModelManagerInterface {
     objectsToRemove.forEach((obj) => {
       this.scene.remove(obj)
 
+      this.restoreOriginalMaterials(obj)
       disposeObject3D(obj, this.preservedMaterials)
       this.disposeModelViaAdapter(obj)
     })

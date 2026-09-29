@@ -337,6 +337,20 @@ describe('SceneModelManager', () => {
       expect(matDispose).toHaveBeenCalled()
     })
 
+    it('disposes parked original materials outside original mode', async () => {
+      const { manager } = createManager()
+      const model = createMeshModel()
+      const mesh = model.children[0] as THREE.Mesh
+      const originalMaterial = mesh.material as THREE.Material
+      const dispose = vi.spyOn(originalMaterial, 'dispose')
+
+      await manager.setupModel(model)
+      manager.setMaterialMode('normal')
+      manager.clearModel()
+
+      expect(dispose).toHaveBeenCalledOnce()
+    })
+
     it('disposes points geometry and materials', async () => {
       const { manager } = createManager()
       const model = createPointsModel()
