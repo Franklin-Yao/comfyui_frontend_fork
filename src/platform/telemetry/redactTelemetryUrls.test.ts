@@ -144,9 +144,7 @@ describe('redactTelemetryValues', () => {
     if (!redacted) throw new Error('Expected redacted telemetry values')
 
     expect(redacted.error).toBeInstanceOf(Error)
-    expect((redacted.error as Error).message).toBe(
-      'failed https://example.com/a.glb'
-    )
+    expect(redacted.error.message).toBe('failed https://example.com/a.glb')
     expect(redacted.date).toBe(date)
     expect(redacted.value).toEqual({})
     expect(getter).not.toHaveBeenCalled()

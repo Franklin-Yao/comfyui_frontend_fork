@@ -1,7 +1,6 @@
 import type { App } from 'vue'
 import { browserApiErrorsIntegration, init as sentryInit } from '@sentry/vue'
-import type { ErrorEvent, EventHint } from '@sentry/vue'
-import type { Exception } from '@sentry/vue'
+import type { ErrorEvent, EventHint, Exception } from '@sentry/vue'
 
 import { sentryThirdPartyErrorFilter } from './thirdPartyErrorNoise'
 import {
