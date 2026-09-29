@@ -146,6 +146,18 @@ describe('generateModelThumbnail', () => {
     expect(instance.remove).toHaveBeenCalledTimes(1)
   })
 
+  it('reports renderer acquisition failures as a failed result', async () => {
+    vi.mocked(acquireSharedRenderer).mockImplementationOnce(() => {
+      throw new Error('WebGL context unavailable')
+    })
+
+    await expect(
+      generateModelThumbnail('/model.glb', 'model.glb')
+    ).resolves.toEqual({ status: 'failed' })
+    expect(reportError).toHaveBeenCalledOnce()
+    expect(createLoad3d).not.toHaveBeenCalled()
+  })
+
   it('redacts credentials from protocol-relative URLs before reporting', async () => {
     const instance = mockInstance({
       loadModel: vi
