@@ -262,6 +262,28 @@ describe('ReplyAssetGroup', () => {
     expect(generateModelThumbnail).not.toHaveBeenCalled()
   })
 
+  it('settles a rejected preview lookup into the bounded retry path', async () => {
+    isAssetPreviewSupported.mockReturnValue(true)
+    findServerPreviewUrl
+      .mockRejectedValueOnce(new Error('preview lookup failed'))
+      .mockResolvedValueOnce('https://x/mesh_preview.png')
+    vi.useFakeTimers()
+    try {
+      renderGroup([model])
+      await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1))
+
+      await vi.advanceTimersByTimeAsync(2_000)
+
+      expect(findServerPreviewUrl).toHaveBeenCalledTimes(2)
+      expect(screen.getByRole('img', { name: 'mesh.glb' })).toHaveAttribute(
+        'src',
+        'https://x/mesh_preview.png'
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('cancels a pending retry when the viewer close finds a server preview', async () => {
     isAssetPreviewSupported.mockReturnValue(true)
     vi.useFakeTimers()

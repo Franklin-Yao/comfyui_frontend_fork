@@ -127,28 +127,31 @@ function loadModelThumbnail(url: string, filename: string, attempts = 0): void {
   const controller = markRaw(new AbortController())
   thumbnailState.value[url] = { phase: 'loading', controller, attempts }
 
-  void findServerPreviewUrl(filename).then(async (preview) => {
-    if (!mounted || !owns(url, controller)) return
-    if (preview) {
-      thumbnailState.value[url] = { phase: 'ready', src: preview }
-      return
-    }
-    const result = await generateModelThumbnail(
-      url,
-      filename,
-      controller.signal
-    )
-    if (!mounted || !owns(url, controller)) return
-    if (result.status === 'rendered') {
-      thumbnailState.value[url] = { phase: 'ready', src: result.dataUrl }
-    } else if (result.status === 'failed' || result.status === 'busy') {
+  void findServerPreviewUrl(filename)
+    .then(async (preview) => {
+      if (!mounted || !owns(url, controller)) return
+      if (preview) {
+        thumbnailState.value[url] = { phase: 'ready', src: preview }
+        return
+      }
+      const result = await generateModelThumbnail(
+        url,
+        filename,
+        controller.signal
+      )
+      if (!mounted || !owns(url, controller)) return
+      if (result.status === 'rendered') {
+        thumbnailState.value[url] = { phase: 'ready', src: result.dataUrl }
+      } else if (result.status === 'failed' || result.status === 'busy') {
+        scheduleThumbnailRetry(url, filename, attempts)
+      } else {
+        thumbnailState.value[url] = { phase: 'gaveUp' }
+      }
+    })
+    .catch(() => {
+      if (!mounted || !owns(url, controller)) return
       scheduleThumbnailRetry(url, filename, attempts)
-    } else {
-      thumbnailState.value[url] = { phase: 'gaveUp' }
-    }
-    // A hide/unmount abort no longer owns this strand, while a queue-cap
-    // cancellation still does and settles to gaveUp above.
-  })
+    })
 }
 
 /**
