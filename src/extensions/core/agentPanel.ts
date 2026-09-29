@@ -282,6 +282,7 @@ export function registerAgentPanelExtension(): void {
           })
           .catch((error: unknown) => {
             reportError(error, {
+              surface: 'agent',
               errorType: 'agent_panel_activation_failure'
             })
           })
