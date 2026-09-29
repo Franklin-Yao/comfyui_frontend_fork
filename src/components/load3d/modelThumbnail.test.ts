@@ -244,6 +244,33 @@ describe('generateModelThumbnail', () => {
     }
   })
 
+  it('times out a stuck capture and advances the queue', async () => {
+    vi.useFakeTimers()
+    try {
+      const stuck = mockInstance({
+        captureThumbnail: vi.fn(() => new Promise<string>(() => {}))
+      })
+      const next = mockInstance()
+      createLoad3d.mockReturnValueOnce(stuck).mockReturnValueOnce(next)
+
+      const stuckRun = generateModelThumbnail('/stuck.glb', 'stuck.glb')
+      const nextRun = generateModelThumbnail('/next.glb', 'next.glb')
+      await vi.waitFor(() => expect(stuck.captureThumbnail).toHaveBeenCalled())
+
+      await vi.advanceTimersByTimeAsync(15_000)
+
+      await expect(stuckRun).resolves.toEqual({ status: 'failed' })
+      await expect(nextRun).resolves.toEqual({
+        status: 'rendered',
+        dataUrl: 'data:image/png;base64,thumb'
+      })
+      expect(stuck.remove).toHaveBeenCalledOnce()
+      expect(next.captureThumbnail).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('persists a supported asset thumbnail after rendering', async () => {
     const instance = mockInstance()
     createLoad3d.mockReturnValue(instance)
