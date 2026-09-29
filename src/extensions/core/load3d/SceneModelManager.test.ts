@@ -179,23 +179,23 @@ describe('SceneModelManager', () => {
     })
 
     it('preserves a borrowed texture while replacing the rendered model', () => {
-      const { manager, scene } = createManager()
+      const { manager, scene } = createManager({
+        capabilities: { requiresMaterialRebuild: true }
+      })
       const texture = new THREE.Texture()
       const textureDispose = vi.spyOn(texture, 'dispose')
       const material = new THREE.MeshStandardMaterial({ map: texture })
       const model = new THREE.Group()
-      model.name = 'MainModel'
       model.add(new THREE.Mesh(new THREE.BoxGeometry(), material))
-      scene.add(model)
+      manager.addModelToScene(model)
+      manager.originalModel = new THREE.BoxGeometry()
       manager.borrowAppliedTexture(texture)
 
-      const replacing = manager as unknown as {
-        removeAllMainModelsFromScene(): void
-      }
-      replacing.removeAllMainModelsFromScene()
+      manager.setMaterialMode('pointCloud')
 
       expect(textureDispose).not.toHaveBeenCalled()
-      expect(scene.getObjectByName('MainModel')).toBeUndefined()
+      expect(scene.getObjectByName('MainModel')).not.toBe(model)
+      expect(manager.currentModel).toBe(scene.getObjectByName('MainModel'))
     })
   })
 
