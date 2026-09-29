@@ -82,6 +82,18 @@ describe('rumBeforeSend', () => {
     expect(rumBeforeSend(event, fromPartial({}))).toBe(true)
   })
 
+  it('redacts URL secrets from kept error messages and stacks', () => {
+    const secretUrl = 'https://user:secret@example.com/model.glb?token=private'
+    const event = createErrorEvent(
+      `failed ${secretUrl}`,
+      `at load (${secretUrl})`
+    )
+
+    expect(rumBeforeSend(event, fromPartial({}))).toBe(true)
+    expect(event.error.message).toBe('failed https://example.com/model.glb')
+    expect(event.error.stack).toBe('at load (https://example.com/model.glb)')
+  })
+
   it('keeps the console copy while no reporter exists to replace it', () => {
     setAssertReporter(null)
     const event = createErrorEvent(

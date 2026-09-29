@@ -27,7 +27,19 @@ export function initSentry({
     tracesSampleRate: isCloud ? 1.0 : 0,
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
-    beforeSend: sentryThirdPartyErrorFilter,
+    beforeSend: (event, hint) => {
+      const filtered = sentryThirdPartyErrorFilter(event, hint)
+      if (!filtered) return null
+      if (filtered.message) {
+        filtered.message = redactTelemetryUrls(filtered.message)
+      }
+      for (const exception of filtered.exception?.values ?? []) {
+        if (exception.value) {
+          exception.value = redactTelemetryUrls(exception.value)
+        }
+      }
+      return filtered
+    },
     beforeBreadcrumb: (breadcrumb) => ({
       ...breadcrumb,
       message: breadcrumb.message

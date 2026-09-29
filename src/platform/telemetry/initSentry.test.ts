@@ -2,6 +2,7 @@ import type {
   browserApiErrorsIntegration as sentryBrowserApiErrorsIntegration,
   init as sentryInitContract
 } from '@sentry/vue'
+import { fromPartial } from '@total-typescript/shoehorn'
 import { createApp } from 'vue'
 import { expect, it, vi } from 'vitest'
 
@@ -16,9 +17,7 @@ vi.mock(import('@sentry/vue'), () => ({
 }))
 
 import { initSentry } from './initSentry'
-import { sentryThirdPartyErrorFilter } from './thirdPartyErrorNoise'
-
-it('installs the third-party error filter', () => {
+it('installs the third-party error filter in the send sanitizer', () => {
   initSentry({
     app: createApp({}),
     dsn: 'https://public@example.invalid/1',
@@ -26,9 +25,13 @@ it('installs the third-party error filter', () => {
     isCloud: false
   })
 
-  expect(sentryInit).toHaveBeenCalledWith(
-    expect.objectContaining({ beforeSend: sentryThirdPartyErrorFilter })
-  )
+  const options = sentryInit.mock.calls.at(-1)?.[0]
+  const beforeSend = options?.beforeSend
+  expect(
+    beforeSend?.(fromPartial({ message: 'ordinary failure' }), {})
+  ).toMatchObject({
+    message: 'ordinary failure'
+  })
 })
 
 it('redacts URL secrets from breadcrumbs and spans', () => {
@@ -49,6 +52,20 @@ it('redacts URL secrets from breadcrumbs and spans', () => {
   ).toMatchObject({
     message: 'fetch https://example.com/model.glb',
     data: { url: 'https://example.com/model.glb' }
+  })
+  expect(
+    options?.beforeSend?.(
+      fromPartial({
+        exception: {
+          values: [{ value: `failed ${secretUrl}` }]
+        }
+      }),
+      {}
+    )
+  ).toMatchObject({
+    exception: {
+      values: [{ value: 'failed https://example.com/model.glb' }]
+    }
   })
   expect(
     options?.beforeSendSpan?.({

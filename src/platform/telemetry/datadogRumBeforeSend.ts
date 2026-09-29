@@ -3,6 +3,7 @@ import type { RumBeforeSend, RumErrorEvent } from '@datadog/browser-rum'
 import { ASSERTION_FAILURE_PREFIX, hasRumAssertReporter } from '@/base/assert'
 
 import { REPORTED_ERROR_PREFIX } from './reportError'
+import { redactTelemetryUrls } from './redactTelemetryUrls'
 import { isThirdPartyErrorNoise } from './thirdPartyErrorNoise'
 
 const RUM_NOISE_HOSTS = [
@@ -111,6 +112,10 @@ export const rumBeforeSend: RumBeforeSend = (event) => {
   if (event.type === 'error') {
     fingerprintFirebasePendingPromise(event)
     tagRumErrorOrigin(event)
+    event.error.message = redactTelemetryUrls(event.error.message)
+    if (event.error.stack) {
+      event.error.stack = redactTelemetryUrls(event.error.stack)
+    }
   }
   return true
 }

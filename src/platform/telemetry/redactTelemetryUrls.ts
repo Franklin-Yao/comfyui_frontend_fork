@@ -43,20 +43,92 @@ export function redactTelemetryValues(
   values: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
   if (!values) return values
-  const seen = new WeakSet<object>()
+  const ancestors = new WeakSet<object>()
+  const memo = new WeakMap<object, unknown>()
   const redact = (value: unknown): unknown => {
     if (typeof value === 'string') return redactTelemetryUrls(value)
     if (typeof value !== 'object' || value === null) return value
-    if (seen.has(value)) return '[Circular]'
-    seen.add(value)
+    if (ancestors.has(value)) return '[Circular]'
+    if (memo.has(value)) return memo.get(value)
+    if (isError(value)) return redactError(value, redact, memo)
+    const array = isArray(value)
+    if (!array && !isPlainObject(value)) return value
+
+    if (array) {
+      const output: unknown[] = []
+      memo.set(value, output)
+      ancestors.add(value)
+      try {
+        for (const nested of value) output.push(redact(nested))
+        return output
+      } finally {
+        ancestors.delete(value)
+      }
+    }
+
+    const entries = ownDataEntries(value)
+    if (!entries) return value
+    const output: Record<string, unknown> = {}
+    memo.set(value, output)
+    ancestors.add(value)
     try {
-      if (Array.isArray(value)) return value.map(redact)
-      return Object.fromEntries(
-        Object.entries(value).map(([key, nested]) => [key, redact(nested)])
-      )
+      for (const [key, nested] of entries) {
+        output[key] = redact(nested)
+      }
+      return output
     } finally {
-      seen.delete(value)
+      ancestors.delete(value)
     }
   }
   return redact(values) as Record<string, unknown>
+}
+
+function isError(value: object): value is Error {
+  try {
+    return value instanceof Error
+  } catch {
+    return false
+  }
+}
+
+function isArray(value: object): value is unknown[] {
+  try {
+    return Array.isArray(value)
+  } catch {
+    return false
+  }
+}
+
+function isPlainObject(value: object): value is Record<string, unknown> {
+  try {
+    const prototype = Object.getPrototypeOf(value)
+    return prototype === Object.prototype || prototype === null
+  } catch {
+    return false
+  }
+}
+
+function ownDataEntries(value: object): [string, unknown][] | null {
+  try {
+    return Object.entries(Object.getOwnPropertyDescriptors(value))
+      .filter(
+        ([, descriptor]) => descriptor.enumerable && 'value' in descriptor
+      )
+      .map(([key, descriptor]) => [key, descriptor.value])
+  } catch {
+    return null
+  }
+}
+
+function redactError(
+  source: Error,
+  redact: (value: unknown) => unknown,
+  memo: WeakMap<object, unknown>
+): Error {
+  const output = new Error(redactTelemetryUrls(source.message))
+  memo.set(source, output)
+  if (source.cause !== undefined) output.cause = redact(source.cause)
+  output.name = source.name
+  if (source.stack) output.stack = redactTelemetryUrls(source.stack)
+  return output
 }

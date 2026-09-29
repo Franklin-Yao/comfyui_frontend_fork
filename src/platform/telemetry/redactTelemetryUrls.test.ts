@@ -87,4 +87,48 @@ describe('redactTelemetryValues', () => {
       cyclic: { self: '[Circular]' }
     })
   })
+
+  it('memoizes densely shared objects instead of rewalking every path', () => {
+    let shared: Record<string, unknown> = {
+      url: 'https://example.com/a?token=secret'
+    }
+    for (let depth = 0; depth < 30; depth++) {
+      shared = { left: shared, right: shared }
+    }
+
+    const redacted = redactTelemetryValues({ shared })?.shared as Record<
+      string,
+      unknown
+    >
+    expect(redacted.left).toBe(redacted.right)
+  })
+
+  it('redacts real errors without flattening other object instances or invoking getters', () => {
+    const error = new Error(
+      'failed https://user:secret@example.com/a.glb?token=x'
+    )
+    const date = new Date()
+    const getter = vi.fn(() => 'https://example.com/a?token=x')
+    const value = Object.defineProperty({}, 'unsafe', {
+      enumerable: true,
+      get: getter
+    })
+
+    const redacted = redactTelemetryValues({ error, date, value })
+
+    expect(redacted?.error).toBeInstanceOf(Error)
+    expect((redacted?.error as Error).message).toBe(
+      'failed https://example.com/a.glb'
+    )
+    expect(redacted?.date).toBe(date)
+    expect(redacted?.value).toEqual({})
+    expect(getter).not.toHaveBeenCalled()
+  })
+
+  it('passes through proxies that reject reflection without throwing', () => {
+    const { proxy, revoke } = Proxy.revocable({}, {})
+    revoke()
+
+    expect(redactTelemetryValues({ proxy })?.proxy).toBe(proxy)
+  })
 })
