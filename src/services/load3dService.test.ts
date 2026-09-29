@@ -566,26 +566,51 @@ describe('load3dService', () => {
       expect(state.modelManager.currentModel).toBe(clone)
     })
 
-    it('gives the clone independently disposable geometry, material, and textures', async () => {
+    it('gives sibling clones independent geometry, material arrays, and texture slots', async () => {
       const geometry = new THREE.BoxGeometry()
-      const texture = new THREE.Texture()
-      const material = new THREE.MeshStandardMaterial({ map: texture })
+      const map = new THREE.Texture()
+      const normalMap = new THREE.Texture()
+      const materials = [
+        new THREE.MeshStandardMaterial({ map }),
+        new THREE.MeshStandardMaterial({ normalMap })
+      ]
       const sourceModel = new THREE.Group()
-      const clone = new THREE.Group()
-      clone.add(new THREE.Mesh(geometry, material))
+      const firstClone = new THREE.Group()
+      firstClone.add(new THREE.Mesh(geometry, materials))
+      const secondClone = firstClone.clone(true)
       const source = makeSource({ currentModel: sourceModel })
       const { target } = makeTarget()
-      skeletonCloneMock.mockReturnValue(clone)
+      skeletonCloneMock
+        .mockReturnValueOnce(firstClone)
+        .mockReturnValueOnce(secondClone)
 
       await useLoad3dService().copyLoad3dState(source, target)
+      await useLoad3dService().copyLoad3dState(source, target)
 
-      const clonedMesh = clone.children[0] as THREE.Mesh<
+      const firstMesh = firstClone.children[0] as THREE.Mesh<
         THREE.BoxGeometry,
-        THREE.MeshStandardMaterial
+        THREE.MeshStandardMaterial[]
       >
-      expect(clonedMesh.geometry).not.toBe(geometry)
-      expect(clonedMesh.material).not.toBe(material)
-      expect(clonedMesh.material.map).not.toBe(texture)
+      const secondMesh = secondClone.children[0] as THREE.Mesh<
+        THREE.BoxGeometry,
+        THREE.MeshStandardMaterial[]
+      >
+      expect(firstMesh.geometry).not.toBe(geometry)
+      expect(secondMesh.geometry).not.toBe(geometry)
+      expect(secondMesh.geometry).not.toBe(firstMesh.geometry)
+      expect(firstMesh.material[0]).not.toBe(materials[0])
+      expect(secondMesh.material[0]).not.toBe(firstMesh.material[0])
+      expect(firstMesh.material[0].map).not.toBe(map)
+      expect(secondMesh.material[0].map).not.toBe(firstMesh.material[0].map)
+      expect(firstMesh.material[1].normalMap).not.toBe(normalMap)
+      expect(secondMesh.material[1].normalMap).not.toBe(
+        firstMesh.material[1].normalMap
+      )
+
+      firstMesh.geometry.dispose()
+      firstMesh.material.forEach((material) => material.dispose())
+      expect(secondMesh.geometry).not.toBe(firstMesh.geometry)
+      expect(secondMesh.material).not.toContain(firstMesh.material[0])
     })
 
     it('copies originalModel, material mode, up direction, and applied texture from source to target', async () => {

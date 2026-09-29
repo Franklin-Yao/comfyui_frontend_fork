@@ -1,32 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fromPartial } from '@total-typescript/shoehorn'
 
-const rendererModule = vi.hoisted(() => {
-  let resolveImport!: () => void
-  let resolveImportStarted!: () => void
-  return {
-    acquire: vi.fn(),
-    importStarted: new Promise<void>((resolve) => {
-      resolveImportStarted = resolve
-    }),
-    importReady: new Promise<void>((resolve) => {
-      resolveImport = resolve
-    }),
-    resolveImportStarted,
-    resolveImport
+import type { createLoad3d } from '@/extensions/core/load3d/createLoad3d'
+import type Load3d from '@/extensions/core/load3d/Load3d'
+import type { SharedRendererHandle } from '@/renderer/three/sharedWebGLRenderer'
+
+const load3dModule = vi.hoisted(() => {
+  const deferred = () => {
+    let resolve = () => {}
+    const promise = new Promise<void>((promiseResolve) => {
+      resolve = promiseResolve
+    })
+    return { promise, resolve }
   }
+  const importStarted = deferred()
+  const importReady = deferred()
+  return { create: vi.fn<typeof createLoad3d>(), importStarted, importReady }
 })
 
-const createLoad3d = vi.hoisted(() => vi.fn())
-
-vi.mock(import('@/renderer/three/sharedWebGLRenderer'), async () => {
-  rendererModule.resolveImportStarted()
-  await rendererModule.importReady
-  return { acquireSharedRenderer: rendererModule.acquire }
-})
-
-vi.mock(import('@/extensions/core/load3d/createLoad3d'), () => ({
-  createLoad3d
+vi.mock(import('@/renderer/three/sharedWebGLRenderer'), () => ({
+  acquireSharedRenderer: vi.fn(() =>
+    fromPartial<SharedRendererHandle>({ release: vi.fn() })
+  )
 }))
+
+vi.mock(import('@/extensions/core/load3d/createLoad3d'), async () => {
+  load3dModule.importStarted.resolve()
+  await load3dModule.importReady.promise
+  return { createLoad3d: load3dModule.create }
+})
 
 vi.mock(import('@/platform/assets/utils/assetPreviewUtil'), () => ({
   isAssetPreviewSupported: vi.fn(() => false),
@@ -39,37 +41,38 @@ vi.mock(import('@/platform/telemetry/reportError'), () => ({
 
 import { generateModelThumbnail } from './modelThumbnail'
 
-describe('generateModelThumbnail deferred renderer import', () => {
+describe('generateModelThumbnail deferred createLoad3d import', () => {
   beforeEach(() => {
-    createLoad3d.mockReset()
-    rendererModule.acquire.mockReset()
+    load3dModule.create.mockReset().mockReturnValue(
+      fromPartial<Load3d>({
+        loadModel: vi.fn().mockResolvedValue('loaded'),
+        captureThumbnail: vi
+          .fn()
+          .mockResolvedValue('data:image/png;base64,thumb'),
+        remove: vi.fn()
+      })
+    )
   })
 
-  it('cancels and advances the queue while renderer import stays unresolved', async () => {
+  it('times out module acquisition and advances the queued successor', async () => {
     vi.useFakeTimers()
-    const controller = new AbortController()
-    const cancelled = generateModelThumbnail(
-      '/deferred.glb',
-      'deferred.glb',
-      controller.signal
-    )
+    const timedOut = generateModelThumbnail('/deferred.glb', 'deferred.glb')
     const nextController = new AbortController()
     const next = generateModelThumbnail(
       '/next.glb',
       'next.glb',
       nextController.signal
     )
-    await rendererModule.importStarted
+    await load3dModule.importStarted.promise
+
+    await vi.advanceTimersByTimeAsync(15_000)
+    await expect(timedOut).resolves.toEqual({ status: 'timedOut' })
 
     nextController.abort()
-    controller.abort()
     await vi.advanceTimersByTimeAsync(0)
 
-    await expect(cancelled).resolves.toEqual({ status: 'cancelled' })
     await expect(next).resolves.toEqual({ status: 'cancelled' })
-    expect(rendererModule.acquire).not.toHaveBeenCalled()
-    expect(createLoad3d).not.toHaveBeenCalled()
-    expect(vi.getTimerCount()).toBe(0)
-    vi.useRealTimers()
+    expect(load3dModule.create).not.toHaveBeenCalled()
+    load3dModule.importReady.resolve()
   })
 })

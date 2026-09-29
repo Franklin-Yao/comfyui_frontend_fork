@@ -17,34 +17,8 @@ import type {
 } from '@/extensions/core/load3d/interfaces'
 import type { LGraphNode } from '@/lib/litegraph/src/litegraph'
 import type { NodeId } from '@/types/nodeId'
-import type { Material, Object3D, Texture } from 'three'
-
-function cloneMaterialWithTextures(material: Material): Material {
-  const clone = material.clone()
-  for (const [key, value] of Object.entries(clone)) {
-    if ((value as Texture | undefined)?.isTexture) {
-      ;(clone as unknown as Record<string, unknown>)[key] = value.clone()
-    }
-  }
-  return clone
-}
-
-function cloneModelResources(model: Object3D): void {
-  model.traverse((child) => {
-    const renderable = child as Object3D & {
-      material?: Material | Material[]
-      geometry?: { clone(): unknown }
-    }
-    if (renderable.geometry) {
-      renderable.geometry =
-        renderable.geometry.clone() as typeof renderable.geometry
-    }
-    if (!renderable.material) return
-    renderable.material = Array.isArray(renderable.material)
-      ? renderable.material.map(cloneMaterialWithTextures)
-      : cloneMaterialWithTextures(renderable.material)
-  })
-}
+import { cloneObject3DResources } from '@/extensions/core/load3d/SceneModelManager'
+import type { Object3D } from 'three'
 
 // Type for the useLoad3dViewer composable function
 // Using explicit type to avoid import() type annotations (lint rule)
@@ -266,7 +240,7 @@ class Load3dService {
         // Use SkeletonUtils.clone for proper skeletal animation support
         const SkeletonUtils = await loadSkeletonUtils()
         const modelClone = SkeletonUtils.clone(sourceModel)
-        cloneModelResources(modelClone)
+        cloneObject3DResources(modelClone)
 
         target.getModelManager().currentModel = modelClone
         target.getSceneManager().scene.add(modelClone)

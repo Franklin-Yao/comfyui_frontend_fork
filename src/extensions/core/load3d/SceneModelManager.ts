@@ -31,13 +31,45 @@ export function disposeObject3D(
       : [child.material]
     for (const material of materials) {
       if (!material || preserved.has(material)) continue
-      for (const value of Object.values(material)) {
-        if (value instanceof THREE.Texture && !preservedTextures.has(value)) {
-          value.dispose()
+      for (const [, texture] of materialTextures(material)) {
+        if (!preservedTextures.has(texture)) {
+          texture.dispose()
         }
       }
       material.dispose()
     }
+  })
+}
+
+function materialTextures(
+  material: THREE.Material
+): Array<[property: string, texture: THREE.Texture]> {
+  return Object.entries(material).filter(
+    (entry): entry is [string, THREE.Texture] =>
+      entry[1] instanceof THREE.Texture
+  )
+}
+
+function cloneMaterialResources(material: THREE.Material): THREE.Material {
+  const clone = material.clone()
+  for (const [property, texture] of materialTextures(clone)) {
+    // Material subclasses expose texture slots dynamically; Reflect.set keeps
+    // that boundary runtime-checked without pretending every slot is indexed.
+    if (!Reflect.set(clone, property, texture.clone())) {
+      throw new TypeError(`Unable to clone material resource ${property}`)
+    }
+  }
+  return clone
+}
+
+/** Give a cloned renderable graph independent ownership of GPU resources. */
+export function cloneObject3DResources(object: THREE.Object3D): void {
+  object.traverse((child) => {
+    if (!(child instanceof THREE.Mesh || child instanceof THREE.Points)) return
+    child.geometry = child.geometry.clone()
+    child.material = Array.isArray(child.material)
+      ? child.material.map(cloneMaterialResources)
+      : cloneMaterialResources(child.material)
   })
 }
 
