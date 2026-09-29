@@ -606,7 +606,7 @@ export type TaskEntry = {
   /**
    * Current task status
    */
-  status: 'created' | 'running' | 'completed' | 'failed'
+  status: 'created' | 'running' | 'completed' | 'failed' | 'cancelled'
   /**
    * Task type name (e.g., model_upload)
    */
@@ -656,7 +656,7 @@ export type TaskResponse = {
   /**
    * Current task status
    */
-  status: 'created' | 'running' | 'completed' | 'failed'
+  status: 'created' | 'running' | 'completed' | 'failed' | 'cancelled'
   /**
    * Task type name (e.g., model_upload)
    */
