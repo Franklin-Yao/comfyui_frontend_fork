@@ -206,7 +206,6 @@
       "complete": "Generation complete.",
       "truncated": "Preview shortened. Download the complete response below.",
       "example": "Example",
-      "exampleHint": "Run {model} to make your own.",
       "earlier": "Earlier runs this session",
       "earlierRun": "Earlier run {number}",
       "latest": "Latest",
@@ -298,6 +297,7 @@
     "card": {
       "partnerNode": "Partner node",
       "comfyApp": "Comfy app",
+      "comfyApi": "Comfy API",
       "runs": "{n} runs",
       "creditsPerRun": "credits / run",
       "from": "from",
@@ -366,6 +366,8 @@
       "frameRatioMismatch": "The video has one shape, so a frame that does not match it will be stretched to fit. Run it as is, or upload frames with the same proportions.",
       "file": "File",
       "replaceFile": "Replace {name}",
+      "removedFile": "{name} removed",
+      "undoRemove": "Put it back",
       "removeNamedFile": "Remove {name}",
       "tooManyImages": "Choose up to {count} images.",
       "tooManyFiles": "Choose up to {count} files.",
@@ -428,10 +430,10 @@
       "failed": "Models did not load."
     },
     "examples": {
-      "replaceTitle": "Replace your inputs?",
-      "replaceBody": "This example comes with its own inputs. What you wrote will be replaced.",
-      "replaceKeep": "Keep mine",
-      "replaceConfirm": "Use the example",
+      "replaceTitle": "Load this example?",
+      "replaceBody": "It comes with its own inputs, so what you filled in will be replaced.",
+      "replaceKeep": "Cancel",
+      "replaceConfirm": "Load example",
       "start": "Try an example",
       "samples": "Sample outputs",
       "view": "View sample",
@@ -475,6 +477,7 @@
       "mappingUnavailable": "We have not verified this request against the Router yet. Check the docs before you rely on it.",
       "copied": "Copied",
       "getKey": "Get API key",
+      "downloadGraph": "Download the API graph",
       "docs": "Router docs",
       "needs": "What you need",
       "needsEndpoint": "Endpoint",
@@ -569,12 +572,12 @@
       "apiHint": "The request below uses the same prepared graph and settings as the Playground. Each submission can start a paid run; do not automatically retry a submission whose outcome is unknown.",
       "apiNote": "Needs a paid Cloud plan and available credits.",
       "apiDocs": "API documentation",
+      "apiSteps": "The whole call, step by step",
       "apiUploads": "Upload media first",
       "apiUploadGrant": "POST /api/inputs/upload-url with {'{'}\"content_type\":\"image/png\"{'}'} on the Cloud origin, using your workspace credential.",
       "apiUploadPut": "PUT the raw file bytes to the returned upload_path on the same Cloud origin. Do not send an account credential with this PUT.",
       "apiUploadFinalize": "The PUT response contains name. Replace the corresponding UPLOADED_*_FILENAME value below with that name.",
       "apiPoll": "POST /api/prompt returns prompt_id. Poll GET /api/jobs/{'{'}prompt_id{'}'}?short_link=ephemeral_tool_chain with your credential. Selected outputs contain temporary short_url links; read the job again to refresh them.",
-      "exampleHint": "An example from this template.",
       "preparing": "Preparing inputs…",
       "submitting": "Handing the workflow over",
       "queued": "Waiting its turn",
@@ -633,9 +636,6 @@
       "cancelError": "Could not request cancellation. Your generation may still be running."
     },
     "cinematic": {
-      "badge": "New · Beta",
-      "summary": "Direct a shot with a real camera, light and grade, then run it on any image model.",
-      "cta": "Open studio",
       "openInStudio": "Open in Cinematic Studio"
     }
   },
@@ -1253,11 +1253,6 @@
       "success": "The link is sent to {email}!",
       "invalidEmail": "Please enter a valid email address.",
       "error": "Something went wrong. Please try again."
-    },
-    "cloud": {
-      "prefix": "Need more power?",
-      "cta": "TRY COMFY CLOUD",
-      "suffix": "Powerful GPUs, same workflow, same results, from anywhere."
     }
   },
   "cloud": {
@@ -1536,10 +1531,6 @@
       "educationalSavings": "Educational savings – 10% off",
       "educationalSavingsYearly": "Educational savings – 25% off",
       "shortRuntime": "30 minute max workflow runtime",
-      "apiConcurrency1": "Run up to 1 concurrent workflow via Cloud API",
-      "apiConcurrency3": "Run up to 3 concurrent workflows via Cloud API",
-      "apiConcurrency5": "Run up to 5 concurrent workflows via Cloud API",
-      "apiConcurrency25": "Run up to 25 concurrent workflows via Cloud API",
       "addCredits": "Add more credits anytime",
       "importModels": "Import your own models",
       "longRuntime": "Longer workflow runtime (up to 1 hr)",
@@ -1612,9 +1603,17 @@
     "faq": {
       "heading": "FAQs"
     },
-    "resourceCosts": {
-      "subtitle": "Only pay for what you use. Rates below apply to the Comfy API, billed by the GPU second.",
-      "heading": "Developer Platform pricing"
+    "comfyApi": {
+      "heading": "Comfy API pricing",
+      "subtitle": "Comfy API is a separate product from your Comfy Cloud plan, for teams building on Comfy Cloud programmatically. GPU time and storage are billed by the second; release, deployment, and concurrency limits apply to each plan below.",
+      "metricColumn": "Limit",
+      "metric": {
+        "releases": "Total releases limit",
+        "deployments": "Total deployments limit",
+        "concurrency": "Max worker concurrency (per deployment)"
+      },
+      "enterpriseNote": "Enterprise limits are determined by your contract.",
+      "learnMore": "Learn More"
     },
     "minimaxLicense": {
       "heading": "MiniMax license pricing",
@@ -2365,7 +2364,8 @@
     "featuredCompanyAlt": "Black Math customer story image",
     "featuredCompanyCtaAria": "Watch the Black Math customer story",
     "developerPlatform": "Developer Platform",
-    "workshop": "Models",
+    "comfyRouter": "Comfy Router",
+    "workshop": "Hub",
     "comfyWorkshop": "Browse Models",
     "signIn": "Sign in",
     "signOut": "Log out",
@@ -4428,7 +4428,30 @@
       "3": {
         "title": "Use it anywhere",
         "description": "Use the API in your internal tool, application, website, workflow, and more."
+      },
+      "chat": {
+        "channel": "creative-team",
+        "message": "here's the link",
+        "reply": "got it!",
+        "messageReady": "The workflow is ready to try",
+        "replyTesting": "Testing it now!",
+        "messagePreview": "Preview is live",
+        "replySharing": "I'll share it with the team",
+        "placeholder": "Message your team"
       }
+    },
+    "serverlessApps": {
+      "eyebrow": "CREATIVE APPS",
+      "heading": "Build the app, not just the workflow.",
+      "body": "Deploy your ComfyUI workflows as APIs behind customer-facing products, internal tools, and automated creative pipelines. Build the experience your users need without exposing the graph.",
+      "browseApps": "Browse apps",
+      "videoLabel": "Creative app powered by Comfy API"
+    },
+    "serverlessCaseStudy": {
+      "quote": "We build creative systems that have to hold up at brand scale. Comfy API lets us package a ComfyUI workflow once and deploy it as an endpoint our team and tools can call, so our time goes into the creative, not the infrastructure.",
+      "name": "PJ Pereira",
+      "role": "Co-founder of Silverside AI",
+      "linkLabel": "Read the Silverside AI customer story"
     },
     "serverlessScale": {
       "1": {
@@ -4478,7 +4501,8 @@
     },
     "serverlessHero": {
       "heading": "ComfyUI workflow to production API in minutes.",
-      "subtitle": "Package all your custom nodes, LoRAs, models, and Python dependencies into an autoscaling endpoint."
+      "subtitle": "Package all your custom nodes, LoRAs, models, and Python dependencies into an autoscaling endpoint.",
+      "animationTitle": "Comfy image pipeline and GPU orchestration animation"
     },
     "modelsGallery": {
       "ariaLabel": "Sample outputs from partner models"
@@ -4570,21 +4594,11 @@
       "creditsColumn": "Comfy Credits",
       "storageColumn": "Storage",
       "storage": {
-        "standardUnder1tb": "Standard network storage, under 1 TB",
-        "standardOver1tb": "Standard network storage, 1 TB and above",
-        "highPerformance": "High-performance network storage",
-        "containerDisk": "Container disk",
-        "networkTitle": "Network storage",
-        "sub": {
-          "standardUnder1tb": "Standard, under 1 TB",
-          "standardOver1tb": "Standard, 1 TB and above",
-          "highPerformance": "High performance",
-          "containerDisk": "Per-worker local filesystem"
-        }
+        "title": "Network Storage"
       },
-      "storageNote": "Models live on persistent network storage shared across a deployment's workers. Container disk is each worker's local filesystem and is billed separately.",
+      "storageNote": "Models live on persistent network storage shared across a deployment's workers.",
       "billedPerSecond": "Billed by the GPU second",
-      "storageExample": "Worked example: 500 GB of models on standard network storage = {amount}/mo + GPU time.",
+      "storageExample": "For example: 20 GB of models = {amount}/mo + GPU time.",
       "modelsNote": "Comfy Router usage shows per-output prices on each model card and draws from the same credit pool."
     },
     "faq": {

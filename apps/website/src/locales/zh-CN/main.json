@@ -1330,11 +1330,6 @@
     }
   },
   "download": {
-    "cloud": {
-      "cta": "试试 COMFY CLOUD",
-      "prefix": "需要更强算力？",
-      "suffix": "强大 GPU，同样的工作流，同样的结果，随时随地。"
-    },
     "ecosystem": {
       "description": "超过 5,000 个社区构建的扩展——共计 60,000+ 节点——接入 ComfyUI 并扩展其能力。当新的开源模型发布时，ComfyUI 会实现它，社区会立即将其定制并构建到工作流中。当研究论文发布新技术时，几天内就会出现相应扩展。",
       "heading": "一个比任何公司都迭代更快的生态系统。"
@@ -2887,6 +2882,7 @@
     "ctaDesktopCore": "桌面版",
     "customerStories": "客户故事",
     "developerPlatform": "开发者平台",
+    "comfyRouter": "Comfy Router",
     "discord": "Discord",
     "docs": "文档",
     "downloadLocal": "下载桌面版",
@@ -2931,7 +2927,7 @@
     "toggleMenu": "切换菜单",
     "upgrade": "升级",
     "upgradeToAddCredits": "升级以添加积分",
-    "workshop": "模型",
+    "workshop": "Hub",
     "workspaceSettings": "工作区设置",
     "workspaceSwitchError": "无法切换工作区。请检查网络连接后重试。",
     "workspaces": "工作区",
@@ -3146,7 +3142,30 @@
       "3": {
         "description": "在内部工具、应用、网站、工作流等任何场景中调用这个 API。",
         "title": "在任何地方使用"
+      },
+      "chat": {
+        "channel": "创意团队",
+        "message": "链接在这里",
+        "reply": "收到！",
+        "messageReady": "工作流可以试用了",
+        "replyTesting": "现在就来试！",
+        "messagePreview": "预览已上线",
+        "replySharing": "我会分享给团队",
+        "placeholder": "发送消息给团队"
       }
+    },
+    "serverlessApps": {
+      "eyebrow": "创意应用",
+      "heading": "构建应用，而不只是工作流。",
+      "body": "将 ComfyUI 工作流作为 API 部署在面向客户的产品、内部工具和自动化创意流程之后。在不暴露工作流图的情况下，构建用户所需的体验。",
+      "browseApps": "浏览应用",
+      "videoLabel": "由 Comfy API 驱动的创意应用"
+    },
+    "serverlessCaseStudy": {
+      "quote": "我们构建的创意系统必须能够支撑品牌级规模。Comfy API 让我们一次打包 ComfyUI 工作流，并将其部署为团队和工具都能调用的端点，让我们把时间投入创意，而不是基础设施。",
+      "name": "PJ Pereira",
+      "role": "Silverside AI 联合创始人",
+      "linkLabel": "阅读 Silverside AI 客户案例"
     },
     "meta": {
       "description": "部署并扩展 ComfyUI 工作流。你的工作流。所有模型。一个 API。",
@@ -3187,22 +3206,12 @@
       "idleNote": "存储持续计费；GPU 只在工作节点运行时计费。绝不为闲置算力付费。",
       "modelsNote": "Comfy Router 用量在每个模型卡片上标注单次输出价格，并从同一积分池扣费。",
       "priceColumn": "价格",
-      "storage": {
-        "containerDisk": "容器磁盘",
-        "highPerformance": "网络存储——高性能",
-        "networkTitle": "网络存储",
-        "standardOver1tb": "网络存储——标准，1 TB 及以上",
-        "standardUnder1tb": "网络存储——标准，1 TB 以下",
-        "sub": {
-          "containerDisk": "每个工作节点的本地文件系统",
-          "highPerformance": "高性能",
-          "standardOver1tb": "标准，1 TB 及以上",
-          "standardUnder1tb": "标准，1 TB 以下"
-        }
-      },
       "storageColumn": "存储",
-      "storageExample": "示例：500 GB 模型存放在标准网络存储上 = 每月 {amount} + GPU 时间。",
-      "storageNote": "模型存放在网络存储上——持久化并在部署的所有工作节点间共享。容器磁盘是每个工作节点自己的本地文件系统，单独计费。",
+      "storage": {
+        "title": "网络存储"
+      },
+      "storageExample": "示例：20 GB 模型 = 每月 {amount} + GPU 时间。",
+      "storageNote": "模型存放在网络存储上——持久化并在部署的所有工作节点间共享。",
       "subtitle": "只为实际用量付费。",
       "vramColumn": "显存"
     },
@@ -3237,7 +3246,8 @@
     },
     "serverlessHero": {
       "heading": "几分钟内，将 ComfyUI 工作流变成生产级 API。",
-      "subtitle": "将你的所有自定义节点、LoRA、模型和 Python 依赖打包成一个自动扩缩的端点。"
+      "subtitle": "将你的所有自定义节点、LoRA、模型和 Python 依赖打包成一个自动扩缩的端点。",
+      "animationTitle": "Comfy 图像管线与 GPU 编排动画"
     },
     "serverlessScale": {
       "1": {
@@ -3295,6 +3305,18 @@
     "faq": {
       "heading": "常见问题"
     },
+    "comfyApi": {
+      "heading": "Comfy API 定价",
+      "subtitle": "Comfy API 是独立于你的 Comfy Cloud 套餐之外的产品，面向以编程方式构建于 Comfy Cloud 平台之上的团队。GPU 时间与存储按秒计费；下方列出了各套餐的版本、部署与并发限制。",
+      "metricColumn": "限制项",
+      "metric": {
+        "releases": "版本总数上限",
+        "deployments": "部署总数上限",
+        "concurrency": "最大工作节点并发数（每个部署）"
+      },
+      "enterpriseNote": "企业版的限制由合同约定。",
+      "learnMore": "了解更多"
+    },
     "feature": {
       "addCredits": "可随时增加积分",
       "concurrentWorkflows": "成员可并行运行工作流",
@@ -3306,11 +3328,7 @@
       "longRuntime": "更长工作流运行时长（最长 1 小时）",
       "roleBasedPermissions": "基于角色的权限",
       "sharedCreditPool": "所有成员共享积分池",
-      "shortRuntime": "单个工作流最长运行 30 分钟",
-      "apiConcurrency1": "通过 Cloud API 最多并发运行 1 个工作流",
-      "apiConcurrency3": "通过 Cloud API 最多并发运行 3 个工作流",
-      "apiConcurrency5": "通过 Cloud API 最多并发运行 5 个工作流",
-      "apiConcurrency25": "通过 Cloud API 最多并发运行 25 个工作流"
+      "shortRuntime": "单个工作流最长运行 30 分钟"
     },
     "footnote": "*基于默认设置（81 帧、18fps、640x640、4-step sampler）使用 Wan 2.2 图生视频模板生成 5 秒视频估算",
     "included": {
@@ -3440,10 +3458,6 @@
         "projects": "项目",
         "sharedWorkflowsAndAssets": "共享工作流与资产"
       }
-    },
-    "resourceCosts": {
-      "heading": "开发者平台定价",
-      "subtitle": "按实际用量付费。以下费率适用于 Comfy API，按 GPU 秒计费。"
     },
     "savePercent": "节省 {pct}%（{amount}）",
     "subtitle": "通过简单透明、按使用量计费的方式，访问云端 ComfyUI 工作流。",
@@ -4202,6 +4216,7 @@
       "filesUploaded": "调用前先上传，再通过链接读取",
       "filesOmitted": "cURL 已省略上传的文件，请求可能不完整。请使用 Python 或 TypeScript 包含这些文件。",
       "getKey": "获取 API 密钥",
+      "downloadGraph": "下载 API 节点图",
       "heading": "从代码中调用该模型",
       "inputInvalid": "请在试用区填写有效的模型参数以生成请求。",
       "localFiles": "代码运行时会读取文件并进行 Base64 编码。请将路径设置为您的本地文件。",
@@ -4212,6 +4227,7 @@
       "from": "起",
       "partnerNode": "合作伙伴节点",
       "comfyApp": "Comfy 应用",
+      "comfyApi": "Comfy API",
       "priceOnPage": "价格见模型页",
       "runs": "{n} 次运行",
       "tryCta": "在 Playground 试用"
@@ -4295,10 +4311,10 @@
     "examples": {
       "empty": "该模型暂无示例。",
       "open": "在 Playground 中打开",
-      "replaceBody": "该示例自带输入内容，你填写的内容将被替换。",
-      "replaceConfirm": "使用该示例",
-      "replaceKeep": "保留我的内容",
-      "replaceTitle": "要替换你的输入吗？",
+      "replaceBody": "它自带输入内容，你填写的内容会被替换。",
+      "replaceConfirm": "载入示例",
+      "replaceKeep": "取消",
+      "replaceTitle": "要载入这个示例吗？",
       "samples": "输出样例",
       "start": "试试一个示例",
       "use": "使用此示例",
@@ -4331,6 +4347,8 @@
       "remove": "移除文件",
       "removeNamedFile": "移除 {name}",
       "replaceFile": "替换 {name}",
+      "removedFile": "已移除 {name}",
+      "undoRemove": "撤销移除",
       "resolution": "分辨率",
       "seconds": "{value} 秒",
       "seed": "随机种子",
@@ -4507,7 +4525,6 @@
       "earlier": "本次会话的早前运行",
       "earlierRun": "早前运行 {number}",
       "example": "示例",
-      "exampleHint": "运行 {model} 以生成你自己的结果。",
       "expand": "放大",
       "expired": "该输出已过期。",
       "expiredHint": "结果不会被保存。链接在运行后 24 小时内有效；请下载以保留。",
@@ -4743,12 +4760,12 @@
       "apiHint": "以下请求使用与体验区相同的预设图和设置。每次提交都可能开始一次付费运行；如果提交结果未知，请勿自动重试。",
       "apiNote": "需要付费的 Cloud 方案和可用额度。",
       "apiDocs": "API 文档",
+      "apiSteps": "完整调用步骤",
       "apiUploads": "先上传媒体",
       "apiUploadGrant": "使用工作区凭证向 Cloud 的 POST /api/inputs/upload-url 发送 {'{'}\"content_type\":\"image/png\"{'}'}。",
       "apiUploadPut": "将文件原始字节 PUT 到同一 Cloud 地址返回的 upload_path。此 PUT 不要携带账号凭证。",
       "apiUploadFinalize": "PUT 响应包含 name。用此名称替换下方对应的 UPLOADED_*_FILENAME。",
       "apiPoll": "POST /api/prompt 返回 prompt_id。使用凭证轮询 GET /api/jobs/{'{'}prompt_id{'}'}?short_link=ephemeral_tool_chain。选定输出包含临时 short_url 链接；再次读取运行即可刷新链接。",
-      "exampleHint": "此模板的示例。",
       "preparing": "正在准备输入…",
       "submitting": "正在提交工作流",
       "queued": "排队中",
@@ -4784,8 +4801,8 @@
       "eyebrow": "Hub",
       "categories": "分类",
       "show": "浏览",
-      "workflowsSubtitle": "借助由 AI 模型驱动的多步骤工作流，把你的创意变成完整的成果。",
-      "appsSubtitle": "用整合多个工作流的应用，挑战更大的创意。",
+      "workflowsSubtitle": "用由 AI 模型驱动的多步骤工作流，把你的想法变成完成的作品。",
+      "appsSubtitle": "用把多个工作流组合在一起的应用，挑战更大的想法。",
       "noWorkflows": "没有符合搜索和筛选条件的工作流。",
       "backToWorkflows": "返回工作流",
       "allWorkflows": "全部工作流",
@@ -4807,9 +4824,6 @@
       "cancelError": "无法请求取消。生成可能仍在进行。"
     },
     "cinematic": {
-      "badge": "新 · 测试版",
-      "summary": "用真实的摄影机、光线与调色导演一个镜头，然后在任意图像模型上运行。",
-      "cta": "打开工作室",
       "openInStudio": "在 Cinematic Studio 中打开"
     }
   }

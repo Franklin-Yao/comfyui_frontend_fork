@@ -24,7 +24,7 @@
     "edit": "编辑",
     "credit": "基于 Cseti 的 CrossView-Warp LoRA 与节点",
     "pick": {
-      "lead": "为片段设置新机位，从另一个角度得到同一时刻。",
+      "lead": "从任意角度重拍任意视频。机位随心移动，无需补拍。",
       "drop": "将视频拖到这里",
       "upload": "上传视频",
       "exampleMeta": "无需上传即可试用",
@@ -93,6 +93,10 @@
       "left": "机位向左",
       "right": "机位向右"
     },
+    "dolly": {
+      "in": "机位靠近",
+      "out": "机位远离"
+    },
     "advanced": {
       "label": "高级",
       "value": "提示词、对白、种子"
@@ -102,12 +106,13 @@
     "promptHelp": "描述原机位未拍到的区域应填充什么内容。",
     "generatingHelp": "闲置一段时间后的首次运行还需要加载模型。",
     "take": {
-      "exampleHelp": "示例结果：该片段以 768p 从新角度重拍。在左侧设置你自己的机位。",
+      "exampleHelp": "示例结果：该片段以 768p 从新角度重拍。设置你自己的机位试试。",
       "aim": "取景",
       "example": "示例结果",
       "static": "第 {n} 条 · 水平 {az}° 俯仰 {el}°",
       "move": "第 {n} 条 · 运镜，{keys} 个关键帧",
-      "cancelled": "已取消"
+      "cancelled": "已取消",
+      "failed": "这条镜头未能完成"
     },
     "frames": "{frames} 帧，24 fps（{seconds} 秒）",
     "speed": {
@@ -115,8 +120,8 @@
       "768p": "更清晰"
     },
     "empty": {
-      "title": "重拍结果将显示在这里",
-      "hint": "在左侧上传片段，或试试下方的示例。"
+      "title": "新机位的画面将在这里播放",
+      "hint": "先选一段 5 到 15 秒的片段，或挑一个示例。"
     },
     "optional": "可选",
     "aspect": {
@@ -134,7 +139,10 @@
       "yellow": "训练过，但不太稳定。",
       "red": "超出训练范围，看不到的一面将由模型想象。"
     },
-    "dragHint": "拖动以环绕 · 滚动以靠近",
+    "dragHint": {
+      "label": "拖动以环绕 · 滚动以靠近",
+      "touch": "拖动以环绕"
+    },
     "needsDepth": "分析深度后即可设置新机位。",
     "stale": "画面比例或尺寸已更改，需要重新分析深度。",
     "move": {
@@ -160,6 +168,33 @@
     "generating": "正在生成新视角",
     "takes": "镜头",
     "download": "下载",
-    "demoNote": "设计原型：不会运行任务，镜头显示示例结果。"
+    "stage": {
+      "starting": "正在启动服务器…",
+      "queued": "正在等待服务器…"
+    },
+    "signIn": "登录后即可读取场景。",
+    "unavailable": "重拍功能暂不可用，请稍后再试。",
+    "quote": {
+      "free": "免费 · {period}剩余 {left}/{runs} 次",
+      "freeOnly": "免费",
+      "paid": "{price} 积分",
+      "perSecond": "每秒 {rate} 积分",
+      "failed": "暂时无法获取价格，正在重试…",
+      "priceUnknown": "暂无价格",
+      "exhausted": "免费次数已用完，下一次{when}可用",
+      "later": "稍后"
+    },
+    "period": {
+      "day": "今天",
+      "week": "本周",
+      "days": "每 {n} 天",
+      "hours": "每 {n} 小时"
+    },
+    "error": {
+      "busy": "一次只能生成一条镜头，请等待当前镜头完成。",
+      "rateLimited": "尝试次数过多，请{when}再试。",
+      "failed": "出了点问题，请重试。"
+    },
+    "demoNote": "预览版：目前镜头播放示例结果。"
   }
 }
