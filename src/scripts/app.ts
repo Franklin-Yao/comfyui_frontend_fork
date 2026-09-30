@@ -1529,7 +1529,16 @@ export class ComfyApp {
     let resourceScanLoadCompleted = false
     try {
       try {
-        if (loadId !== this.graphLoadSequence) return false
+        if (loadId !== this.graphLoadSequence) {
+          await useExtensionService().invokeExtensionsAsync(
+            'onGraphLoadError',
+            new DOMException(
+              'Graph load superseded by a newer load',
+              'AbortError'
+            )
+          )
+          return false
+        }
 
         // @ts-expect-error Discrepancies between zod and litegraph - in progress
         this.rootGraph.configure(graphData)
