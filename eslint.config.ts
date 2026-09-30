@@ -12,10 +12,8 @@ import {
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript'
 import { importX } from 'eslint-plugin-import-x'
 import oxlint from 'eslint-plugin-oxlint'
-import testingLibrary from 'eslint-plugin-testing-library'
 // eslint-config-prettier disables ESLint rules that conflict with formatters (oxfmt)
 import eslintConfigPrettier from 'eslint-config-prettier'
-import { configs as storybookConfigs } from 'eslint-plugin-storybook'
 import unusedImports from 'eslint-plugin-unused-imports'
 import pluginVue from 'eslint-plugin-vue'
 import { defineConfig } from 'eslint/config'
@@ -297,8 +295,6 @@ export default defineConfig([
   },
   // Disables ESLint rules that conflict with formatters
   eslintConfigPrettier,
-  // @ts-expect-error Type incompatibility between storybook plugin and ESLint config types
-  storybookConfigs['flat/recommended'],
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
   {
@@ -395,20 +391,6 @@ export default defineConfig([
       'vue/one-component-per-file': 'off',
       'vue/no-reserved-component-names': 'off',
       'vue/no-unused-emit-declarations': 'off'
-    }
-  },
-  {
-    files: ['**/*.test.ts'],
-    plugins: { 'testing-library': testingLibrary },
-    rules: {
-      'testing-library/prefer-screen-queries': 'error',
-      'testing-library/no-container': 'error',
-      'testing-library/no-node-access': 'error',
-      'testing-library/no-wait-for-multiple-assertions': 'error',
-      'testing-library/prefer-find-by': 'error',
-      'testing-library/prefer-presence-queries': 'error',
-      'testing-library/prefer-user-event': 'error',
-      'testing-library/no-debugging-utils': 'error'
     }
   },
   {
