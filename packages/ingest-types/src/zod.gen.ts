@@ -767,7 +767,7 @@ export const zResubscribeRequest = z.object({
 })
 
 /**
- * The newest open renewal invoice of the workspace's Stripe subscription (active, or canceled but not yet ended). Returned only to workspace owners on the stripe billing rail while billing_status is payment_failed, and not while a payment for it is processing. hosted_invoice_url is a bearer payment link.
+ * The newest open renewal invoice of the workspace's Stripe subscription (active, or canceled but not yet ended). Returned only to workspace owners on the stripe billing rail while billing_status is payment_failed or paused, and not while a payment for it is processing. hosted_invoice_url is a bearer payment link.
  */
 export const zRenewalInvoice = z.object({
   amount_due: z.coerce
@@ -2472,6 +2472,7 @@ export const zBillingOpStatusResponse = z.object({
       'authentication_required',
       'authentication_failed',
       'processing_error',
+      'payment_not_completed',
       'generic'
     ])
     .optional(),
