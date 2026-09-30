@@ -7,6 +7,11 @@ import type {
 import type { noDuplicateIngestType as NoDuplicateIngestType } from './comfyIngestTypes'
 import type { useGlobalPinia as UseGlobalPinia } from './globalPinia'
 import type {
+  noRelativePackages as NoRelativePackages,
+  noRestrictedPaths as NoRestrictedPaths,
+  noUselessPathSegments as NoUselessPathSegments
+} from './importPaths'
+import type {
   noDeprecatedApiSchema as NoDeprecatedApiSchema,
   noDirectSelectionWrite as NoDirectSelectionWrite,
   noDomInComputed as NoDomInComputed,
@@ -42,6 +47,12 @@ const { noDuplicateIngestType } = requireFrom('./comfyIngestTypes.ts') as {
 const { useGlobalPinia } = requireFrom('./globalPinia.ts') as {
   useGlobalPinia: typeof UseGlobalPinia
 }
+const { noRelativePackages, noRestrictedPaths, noUselessPathSegments } =
+  requireFrom('./importPaths.ts') as {
+    noRelativePackages: typeof NoRelativePackages
+    noRestrictedPaths: typeof NoRestrictedPaths
+    noUselessPathSegments: typeof NoUselessPathSegments
+  }
 const {
   noDeprecatedApiSchema,
   noDirectSelectionWrite,
@@ -107,8 +118,11 @@ export default {
     'no-render-in-watch-effect': noRenderInWatchEffect,
     'no-redundant-litegraph-cleanup': noRedundantLiteGraphCleanup,
     'no-redundant-vitest-cleanup': noRedundantVitestCleanup,
+    'no-relative-packages': noRelativePackages,
+    'no-restricted-paths': noRestrictedPaths,
     'no-unit-test-files-in-browser-tests': noUnitTestFilesInBrowserTests,
     'no-unsafe-error-assertion': noUnsafeErrorAssertion,
+    'no-useless-path-segments': noUselessPathSegments,
     'prefer-initial-settings': preferInitialSettings,
     'use-global-pinia': useGlobalPinia
   }
