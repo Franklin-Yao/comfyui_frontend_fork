@@ -45,11 +45,21 @@ const makeSuffix = (suffix?: string) => suffix ?? '/Run'
 
 const appendNote = (note?: string) => (note ? ` ${note}` : '')
 
+// VideoRouter fork patch: a price badge whose own `suffix` names "videorouter.sh" is a real
+// relayed price (`comfyui/price_patch.py` in the videorouter.sh backend repo sets this exact
+// marker) — show it as a real dollar amount instead of comfy.org's own credits conversion,
+// which would otherwise silently apply to it too (`usd * CREDITS_PER_USD`, a comfy.org-only
+// concept videorouter.sh users have no account for). Every other node's badge (comfy.org's
+// own, unpatched) is completely untouched — this only special-cases the marker string.
 const formatCreditsLabel = (
   usd: number,
   { suffix, note, approximate }: CreditFormatOptions = {}
-): string =>
-  `${makePrefix(approximate)}${formatCreditsValue(usd)} credits${makeSuffix(suffix)}${appendNote(note)}`
+): string => {
+  if (suffix?.includes('videorouter.sh')) {
+    return `${makePrefix(approximate)}$${usd.toFixed(4)}${makeSuffix(suffix)}${appendNote(note)}`
+  }
+  return `${makePrefix(approximate)}${formatCreditsValue(usd)} credits${makeSuffix(suffix)}${appendNote(note)}`
+}
 
 export const formatCreditsRangeValue = (
   minUsd: number,
